@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ValueOpportunity } from "../../types/arbitrage";
+import type { Platform, ValueOpportunity } from "../../types/arbitrage";
 import { ValueCard } from "./ValueCard";
 import { formatPlatform } from "../../utils/formatters";
 
@@ -107,7 +107,7 @@ function ValueExplainer() {
 
 // All prediction-market platforms that can appear in the Value tab.
 // Hardcoded so toggles are always visible, even when one platform has 0 signals.
-const ALL_PLATFORMS = ["kalshi", "polymarket"];
+const ALL_PLATFORMS: Platform[] = ["kalshi", "polymarket"];
 
 export function ValueList({ valueOps }: Props) {
   // Independent on/off toggle per platform — default all enabled
