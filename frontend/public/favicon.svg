@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Dark background -->
+  <rect width="32" height="32" rx="6" fill="#030712"/>
+  <!-- Green upward arrow / chart line suggesting positive returns -->
+  <polyline points="4,24 10,16 16,19 22,10 28,6" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Dot at peak -->
+  <circle cx="28" cy="6" r="2.5" fill="#22c55e"/>
+</svg>

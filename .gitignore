@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.env
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Logs
+*.log
+backend_launcher.log
+test_back.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dev artifacts
+generate_assets.py
+og-card.html
+frontend/public/og-card.html
