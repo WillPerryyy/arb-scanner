@@ -105,25 +105,17 @@ function ValueExplainer() {
   );
 }
 
-// Derive the set of platforms present in the data
-function getPlatforms(ops: ValueOpportunity[]): string[] {
-  const seen = new Set<string>();
-  for (const v of ops) seen.add(v.sb_leg.contract.platform);
-  return Array.from(seen).sort();
-}
+// All prediction-market platforms that can appear in the Value tab.
+// Hardcoded so toggles are always visible, even when one platform has 0 signals.
+const ALL_PLATFORMS = ["kalshi", "polymarket"];
 
 export function ValueList({ valueOps }: Props) {
-  const platforms = getPlatforms(valueOps);
-
   // Independent on/off toggle per platform — default all enabled
-  const [enabled, setEnabled] = useState<Set<string>>(() => new Set(platforms));
+  const [enabled, setEnabled] = useState<Set<string>>(() => new Set(ALL_PLATFORMS));
 
-  // Re-sync when platforms list changes (e.g. new platform appears after a scan)
-  const enabledFiltered = platforms.length > 1
-    ? valueOps.filter(v => enabled.has(v.sb_leg.contract.platform))
-    : valueOps;
+  const enabledFiltered = valueOps.filter(v => enabled.has(v.sb_leg.contract.platform));
 
-  const showFilter = platforms.length > 1;
+  const showFilter = true;
 
   function toggle(plat: string) {
     setEnabled(prev => {
@@ -154,7 +146,7 @@ export function ValueList({ valueOps }: Props) {
     );
   }
 
-  const hiddenPlatforms = platforms.filter(p => !enabled.has(p));
+  const hiddenPlatforms = ALL_PLATFORMS.filter(p => !enabled.has(p));
 
   return (
     <div className="space-y-3">
@@ -164,7 +156,7 @@ export function ValueList({ valueOps }: Props) {
       {showFilter && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-gray-500">Show:</span>
-          {platforms.map(plat => {
+          {ALL_PLATFORMS.map(plat => {
             const on  = enabled.has(plat);
             const count = valueOps.filter(v => v.sb_leg.contract.platform === plat).length;
             const isLast = enabled.size === 1 && on;
