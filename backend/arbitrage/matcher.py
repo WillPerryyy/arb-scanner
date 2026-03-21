@@ -344,6 +344,20 @@ def find_matching_pairs(
             wa, wb = len(ka.split()), len(kb.split())
             if max(wa, wb) > 2 * min(wa, wb) + 2:
                 continue
+
+            # Guard: 3-token keys encode "sport team_a team_b" game events.
+            # Two such keys that don't share ALL 3 tokens are different games
+            # (same sport, different teams) — NOT the same event.
+            # token_set_ratio scores these ~77-82% because they share 2/3 tokens
+            # (sport + one common team), which exceeds the 0.72 threshold and
+            # causes cross-game oracle contamination. Since Phase 1 already
+            # handles identical 3-token keys, Phase 2 can safely skip all pairs
+            # where both keys have 3 tokens but different token sets.
+            # Example prevented: "nba okc phi" ≈ "nba phi uta" (score ~77.8%)
+            # — different NBA games both involving PHI on the same day.
+            if wa == 3 and wb == 3 and set(ka.split()) != set(kb.split()):
+                continue
+
             score = fuzz.token_set_ratio(ka, kb) / 100.0
             if score < threshold:
                 continue
