@@ -821,7 +821,7 @@ def build_value_opportunity(
     )
 
     return ValueOpportunity(
-        id=_opp_id("val", sb_contract.platform.value, sb_contract.market_id),
+        id=_opp_id("val", sb_contract.platform.value, sb_contract.market_id, str(sb_contract.is_yes_side)),
         event_title=event_title,
         sb_leg=bet_leg,
         oracle_prob=round(oracle_price, 4),

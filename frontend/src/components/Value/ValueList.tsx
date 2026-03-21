@@ -108,8 +108,8 @@ function ValueExplainer() {
 }
 
 export function ValueList({ valueOps, allPlatforms, enabledPlatforms, onTogglePlatform }: Props) {
-  const enabledFiltered = valueOps.filter(
-    v => enabledPlatforms.includes(v.sb_leg.contract.platform as Platform)
+  const enabledFiltered = valueOps.filter(v =>
+    enabledPlatforms.includes(v.sb_leg.contract.platform as Platform)
   );
   const hiddenPlatforms = allPlatforms.filter(p => !enabledPlatforms.includes(p));
 
