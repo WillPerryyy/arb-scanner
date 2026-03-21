@@ -6,7 +6,7 @@ import { formatPlatform } from "../../utils/formatters";
 interface Props {
   valueOps:         ValueOpportunity[];
   allPlatforms:     Platform[];
-  enabledPlatforms: Set<Platform>;
+  enabledPlatforms: Platform[];
   onTogglePlatform: (plat: Platform) => void;
 }
 
@@ -110,18 +110,18 @@ function ValueExplainer() {
 
 export function ValueList({ valueOps, allPlatforms, enabledPlatforms, onTogglePlatform }: Props) {
   const enabledFiltered = valueOps.filter(
-    v => enabledPlatforms.has(v.sb_leg.contract.platform as Platform)
+    v => enabledPlatforms.includes(v.sb_leg.contract.platform as Platform)
   );
-  const hiddenPlatforms = allPlatforms.filter(p => !enabledPlatforms.has(p));
+  const hiddenPlatforms = allPlatforms.filter(p => !enabledPlatforms.includes(p));
 
   // Platform toggles — always rendered; state lives in Dashboard so survives tab switches
   const platformToggles = (
     <div className="flex items-center gap-2 flex-wrap">
       <span className="text-xs text-gray-500">Show:</span>
       {allPlatforms.map(plat => {
-        const on     = enabledPlatforms.has(plat);
+        const on     = enabledPlatforms.includes(plat);
         const count  = valueOps.filter(v => v.sb_leg.contract.platform === plat).length;
-        const isLast = enabledPlatforms.size === 1 && on;
+        const isLast = enabledPlatforms.length === 1 && on;
         return (
           <button
             key={plat}

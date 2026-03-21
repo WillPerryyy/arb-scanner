@@ -25,20 +25,17 @@ export function Dashboard() {
   const [isScanning, setIsScanning] = useState(false);
 
   // Value tab platform filter — lifted here so it survives tab switching
-  const ALL_VALUE_PLATFORMS: Platform[] = useMemo(() => ["kalshi", "polymarket"], []);
-  const [enabledValuePlatforms, setEnabledValuePlatforms] = useState<Set<Platform>>(
-    () => new Set(["kalshi", "polymarket"] as Platform[])
+  const ALL_VALUE_PLATFORMS: Platform[] = ["kalshi", "polymarket"];
+  const [enabledValuePlatforms, setEnabledValuePlatforms] = useState<Platform[]>(
+    ["kalshi", "polymarket"]
   );
   const toggleValuePlatform = useCallback((plat: Platform) => {
     setEnabledValuePlatforms(prev => {
-      const next = new Set(prev);
-      if (next.has(plat)) {
-        if (next.size === 1) return prev; // keep at least one
-        next.delete(plat);
-      } else {
-        next.add(plat);
+      if (prev.includes(plat)) {
+        if (prev.length === 1) return prev; // keep at least one
+        return prev.filter(p => p !== plat);
       }
-      return next;
+      return [...prev, plat];
     });
   }, []);
 

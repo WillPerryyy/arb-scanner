@@ -372,7 +372,7 @@ export function SharpValueTab({
         <ValueList
           valueOps={valueOps}
           allPlatforms={["kalshi"]}
-          enabledPlatforms={new Set<import("../../types/arbitrage").Platform>(["kalshi"])}
+          enabledPlatforms={["kalshi"]}
           onTogglePlatform={() => {/* sharp-value is Kalshi-only, no toggle needed */}}
         />
       )}
