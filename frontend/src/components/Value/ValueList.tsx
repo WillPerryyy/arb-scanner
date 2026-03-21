@@ -4,7 +4,10 @@ import { ValueCard } from "./ValueCard";
 import { formatPlatform } from "../../utils/formatters";
 
 interface Props {
-  valueOps: ValueOpportunity[];
+  valueOps:         ValueOpportunity[];
+  allPlatforms:     Platform[];
+  enabledPlatforms: Set<Platform>;
+  onTogglePlatform: (plat: Platform) => void;
 }
 
 function ValueExplainer() {
@@ -105,45 +108,24 @@ function ValueExplainer() {
   );
 }
 
-// All prediction-market platforms that can appear in the Value tab.
-// Hardcoded so toggles are always visible, even when one platform has 0 signals.
-const ALL_PLATFORMS: Platform[] = ["kalshi", "polymarket"];
+export function ValueList({ valueOps, allPlatforms, enabledPlatforms, onTogglePlatform }: Props) {
+  const enabledFiltered = valueOps.filter(
+    v => enabledPlatforms.has(v.sb_leg.contract.platform as Platform)
+  );
+  const hiddenPlatforms = allPlatforms.filter(p => !enabledPlatforms.has(p));
 
-export function ValueList({ valueOps }: Props) {
-  // Independent on/off toggle per platform — default all enabled
-  const [enabled, setEnabled] = useState<Set<string>>(() => new Set(ALL_PLATFORMS));
-
-  const enabledFiltered = valueOps.filter(v => enabled.has(v.sb_leg.contract.platform));
-
-  const showFilter = true;
-
-  function toggle(plat: string) {
-    setEnabled(prev => {
-      const next = new Set(prev);
-      if (next.has(plat)) {
-        if (next.size === 1) return prev; // keep at least one enabled
-        next.delete(plat);
-      } else {
-        next.add(plat);
-      }
-      return next;
-    });
-  }
-
-  const hiddenPlatforms = ALL_PLATFORMS.filter(p => !enabled.has(p));
-
-  // Platform toggles — always rendered at the top regardless of result count
+  // Platform toggles — always rendered; state lives in Dashboard so survives tab switches
   const platformToggles = (
     <div className="flex items-center gap-2 flex-wrap">
       <span className="text-xs text-gray-500">Show:</span>
-      {ALL_PLATFORMS.map(plat => {
-        const on     = enabled.has(plat);
+      {allPlatforms.map(plat => {
+        const on     = enabledPlatforms.has(plat);
         const count  = valueOps.filter(v => v.sb_leg.contract.platform === plat).length;
-        const isLast = enabled.size === 1 && on;
+        const isLast = enabledPlatforms.size === 1 && on;
         return (
           <button
             key={plat}
-            onClick={() => toggle(plat)}
+            onClick={() => onTogglePlatform(plat)}
             disabled={isLast}
             title={isLast ? "At least one platform must be visible" : undefined}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${

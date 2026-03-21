@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
+import type { Platform } from "../../types/arbitrage";
 import { useArbitrageOpportunities } from "../../hooks/useArbitrageOpportunities";
 import { ScanStatus }      from "../Status/ScanStatus";
 import { MarketFilter }    from "../Filters/MarketFilter";
@@ -22,6 +23,24 @@ interface TabDef {
 export function Dashboard() {
   const [activeTab, setActiveTab]   = useState<Tab>("guide");
   const [isScanning, setIsScanning] = useState(false);
+
+  // Value tab platform filter — lifted here so it survives tab switching
+  const ALL_VALUE_PLATFORMS: Platform[] = useMemo(() => ["kalshi", "polymarket"], []);
+  const [enabledValuePlatforms, setEnabledValuePlatforms] = useState<Set<Platform>>(
+    () => new Set(["kalshi", "polymarket"] as Platform[])
+  );
+  const toggleValuePlatform = useCallback((plat: Platform) => {
+    setEnabledValuePlatforms(prev => {
+      const next = new Set(prev);
+      if (next.has(plat)) {
+        if (next.size === 1) return prev; // keep at least one
+        next.delete(plat);
+      } else {
+        next.add(plat);
+      }
+      return next;
+    });
+  }, []);
 
   const {
     opportunities,
@@ -180,7 +199,12 @@ export function Dashboard() {
         ) : activeTab === "ev" ? (
           <EvEdgeList edges={evEdges} />
         ) : activeTab === "value" ? (
-          <ValueList valueOps={valueOps} />
+          <ValueList
+            valueOps={valueOps}
+            allPlatforms={ALL_VALUE_PLATFORMS}
+            enabledPlatforms={enabledValuePlatforms}
+            onTogglePlatform={toggleValuePlatform}
+          />
         ) : (
           <CryptoTab
             markets={cryptoMarkets}
