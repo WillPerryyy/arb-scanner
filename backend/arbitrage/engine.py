@@ -279,6 +279,46 @@ async def run_full_scan() -> tuple[list[ArbitrageOpportunity], list[EvEdgeOpport
         f"sb_oracle_map: {len(sb_oracle_map)} SB contracts mapped to oracle prob."
     )
 
+    # ── Soccer 3-way oracle pre-collection ───────────────────────────────────────
+    # Soccer "not_X" ↔ "X" hedge pairs give us P(X) for each outcome individually.
+    # We collect all 3 per game BEFORE building the oracle maps so that:
+    #   oracle(not_X) = P(Y) + P(Z)   (sum of ALL OTHER outcomes)
+    # instead of the incorrect 1 - P(X), which is only valid for binary markets.
+    #
+    # Why `1 - P(X)` is wrong for 3-way soccer:
+    #   With vig, P(PSG) + P(NIC) + P(TIE) > 1 (e.g. 0.60 + 0.22 + 0.32 = 1.14).
+    #   1 - P(PSG) = 0.40, but the actual P(not PSG) = P(NIC) + P(TIE) = 0.54.
+    #   The 14pp error equals the full vig — large enough to produce significant
+    #   false signals for "not_X" contracts (both false positives and negatives).
+    #
+    # Structure: parent_event_id → {pinnacle_outcome_label_lower → implied_prob}
+    _soccer_pin_probs: dict[str, dict[str, float]] = {}
+    for _ca, _cb, _s, _ in hedge_pairs:
+        _is_pin_a = _ca.platform == Platform.PINNACLE
+        _is_pin_b = _cb.platform == Platform.PINNACLE
+        if _is_pin_a == _is_pin_b:
+            continue
+        _pin = _ca if _is_pin_a else _cb
+        _pm  = _cb if _is_pin_a else _ca
+        if _pm.platform not in (Platform.KALSHI, Platform.POLYMARKET):
+            continue
+        if _pin.decimal_odds is None or _pin.decimal_odds <= 1.0:
+            continue
+        _pm_lbl = (_pm.outcome_label or "").lower()
+        if not _pm_lbl.startswith("not_"):
+            continue   # only "not_X" ↔ "X" soccer pairs carry individual outcome probs
+        _pin_lbl = (_pin.outcome_label or "").lower()
+        _parent  = _pin.parent_event_id
+        if _parent:
+            if _parent not in _soccer_pin_probs:
+                _soccer_pin_probs[_parent] = {}
+            _soccer_pin_probs[_parent][_pin_lbl] = 1.0 / _pin.decimal_odds
+
+    logger.info(
+        f"[oracle] soccer pre-collection: {len(_soccer_pin_probs)} games, "
+        f"{sum(len(v) for v in _soccer_pin_probs.values())} outcome probs."
+    )
+
     # Kalshi oracle map: (market_id, is_yes_side) → Pinnacle implied prob for the SAME outcome.
     # Built from Kalshi+Pinnacle hedge pairs (complementary outcomes) already found
     # by the fuzzy matcher. Avoids parent_event_id namespace mismatch (Kalshi uses
@@ -294,22 +334,15 @@ async def run_full_scan() -> tuple[list[ArbitrageOpportunity], list[EvEdgeOpport
     # TWO-BRANCH ORACLE FORMULA:
     #
     # Branch A — Soccer "not_X" contracts (outcome_label starts with "not_"):
-    #   oracle for "not_X" = 1 - P(X wins) = 1 - 1/pin_c.decimal_odds.
-    #   We CANNOT use pinnacle_price_lookup[(parent, not is_yes_side)] here because
-    #   soccer 3-way markets have both the Home Win and the Draw contracts with
-    #   is_yes_side=True — the Draw overwrites Home Win in pinnacle_price_lookup,
-    #   so the stored value for (parent, True) is P(Draw) not P(Home). The formula
-    #   1 - 1/pin_c.decimal_odds reads the correct per-contract probability directly
-    #   from the hedge pair's Pinnacle contract (which is never the Draw; it's paired
-    #   with the specific "not_X" Kalshi contract).
+    #   oracle(not_X) = P(Y) + P(Z)  (sum of all other Pinnacle outcomes for this game)
+    #   oracle(X YES) = P(X) directly from the same Pinnacle contract
+    #   Both entries are written in the same iteration to avoid the complement pass
+    #   for soccer (which would give wrong values due to vig: 1 - P(not_X) ≠ P(X)).
     #
     # Branch B — Binary contracts (e.g. outcome_label "OKC", "PHI", "YES", "NO"):
     #   oracle for outcome X = pinnacle_price_lookup[(parent, not pin_c.is_yes_side)].
     #   pin_c is the complement (covers outcome "not X"), so "not pin_c.is_yes_side"
     #   retrieves P(X wins) directly — the correct oracle with no vig deflation.
-    #   We CANNOT use 1 - 1/pin_c.decimal_odds here because vig means
-    #   P(OKC) + P(PHI) > 1, so 1 - P(PHI) ≠ P(OKC). The gap is ~4pp per leg,
-    #   enough to suppress genuine NBA edges below the 1.5pp threshold entirely.
     kalshi_oracle_map: dict[tuple[str, bool], float] = {}
     for contract_a, contract_b, _score, _ in hedge_pairs:
         is_pin_a = contract_a.platform == Platform.PINNACLE
@@ -326,9 +359,19 @@ async def run_full_scan() -> tuple[list[ArbitrageOpportunity], list[EvEdgeOpport
         if kal_map_key not in kalshi_oracle_map:
             kal_lbl = (kal_c.outcome_label or "").lower()
             if kal_lbl.startswith("not_"):
-                # Soccer "not_X": use the per-contract decimal odds directly
-                # to avoid the Draw/Home is_yes_side collision in pinnacle_price_lookup
-                oracle_price = 1.0 - (1.0 / pin_c.decimal_odds)
+                # Soccer "not_X": oracle = P(all other outcomes)
+                base   = kal_lbl[4:]   # "not_psg" → "psg"
+                parent = pin_c.parent_event_id
+                probs  = _soccer_pin_probs.get(parent, {})
+                if base in probs and len(probs) >= 2:
+                    oracle_price = sum(p for lbl, p in probs.items() if lbl != base)
+                    # Also directly set oracle for the X-YES contract = P(X)
+                    yes_key = (kal_c.market_id, True)
+                    if yes_key not in kalshi_oracle_map:
+                        kalshi_oracle_map[yes_key] = probs[base]
+                else:
+                    # Fallback if pre-collection missed this game
+                    oracle_price = 1.0 - (1.0 / pin_c.decimal_odds)
             else:
                 # Binary game: look up P(kal_c outcome) from pinnacle_price_lookup;
                 # pin_c is the complement so "not pin_c.is_yes_side" is kal_c's direction
@@ -341,8 +384,7 @@ async def run_full_scan() -> tuple[list[ArbitrageOpportunity], list[EvEdgeOpport
 
     # Polymarket oracle map: (market_id, is_yes_side) → Pinnacle implied prob.
     # Same construction as kalshi_oracle_map but filters for Polymarket contracts.
-    # Applies the same two-branch formula: soccer "not_X" uses per-contract decimal
-    # odds; binary uses pinnacle_price_lookup direct lookup (avoids vig deflation).
+    # Applies the same two-branch formula using the shared _soccer_pin_probs table.
     polymarket_oracle_map: dict[tuple[str, bool], float] = {}
     for contract_a, contract_b, _score, _ in hedge_pairs:
         is_pin_a = contract_a.platform == Platform.PINNACLE
@@ -359,7 +401,16 @@ async def run_full_scan() -> tuple[list[ArbitrageOpportunity], list[EvEdgeOpport
         if poly_key not in polymarket_oracle_map:
             poly_lbl = (poly_c.outcome_label or "").lower()
             if poly_lbl.startswith("not_"):
-                oracle_price = 1.0 - (1.0 / pin_c.decimal_odds)
+                base   = poly_lbl[4:]
+                parent = pin_c.parent_event_id
+                probs  = _soccer_pin_probs.get(parent, {})
+                if base in probs and len(probs) >= 2:
+                    oracle_price = sum(p for lbl, p in probs.items() if lbl != base)
+                    yes_key = (poly_c.market_id, True)
+                    if yes_key not in polymarket_oracle_map:
+                        polymarket_oracle_map[yes_key] = probs[base]
+                else:
+                    oracle_price = 1.0 - (1.0 / pin_c.decimal_odds)
             else:
                 oracle_key   = (pin_c.parent_event_id, not pin_c.is_yes_side)
                 oracle_price = pinnacle_price_lookup.get(oracle_key)
@@ -369,14 +420,17 @@ async def run_full_scan() -> tuple[list[ArbitrageOpportunity], list[EvEdgeOpport
     logger.info(f"[oracle] polymarket_oracle_map: {len(polymarket_oracle_map)} Polymarket contracts mapped to oracle prob.")
 
     # ── Complement oracle pass ────────────────────────────────────────────────
-    # Soccer 3-way markets: Kalshi emits `not_X` contracts (e.g. "not_SJ") which
-    # appear in hedge pairs paired with Pinnacle's `X` line.  The complementary
-    # `X YES` contracts (e.g. "SJ wins directly") are never in hedge_pairs and
-    # therefore never receive an oracle entry — meaning they're invisible to the
-    # value pass below.
+    # For binary markets: Kalshi emits a YES (team A) and NO (team B) contract.
+    # The hedge pair is (NO "team B", Pinnacle "team A") — so team A YES gets
+    # no oracle entry from the main loop. Derive it as 1 − P(not A).
     #
-    # Fix: for any (market_id, is_yes_side) that has an oracle but whose mirror
-    # (market_id, not is_yes_side) does not, derive the mirror from P(X) = 1 − P(¬X).
+    # Soccer YES contracts (PSG wins, NIC wins, TIE) are already set directly in
+    # the oracle building loop above via the soccer_pin_probs pre-collection.
+    # Those entries are already correct (P(X) from Pinnacle, not a vig-distorted
+    # complement). The complement pass is a no-op for soccer games.
+    #
+    # Complement: for any (market_id, is_yes_side) that has an oracle but whose
+    # mirror does not, derive mirror from 1 − oracle_p.
     # Only valid when 0 < oracle_p < 1 (degenerate prices carry no information).
     _kal_complements: dict[tuple[str, bool], float] = {}
     for (mkt_id, is_yes), oracle_p in kalshi_oracle_map.items():
@@ -669,10 +723,32 @@ async def scan_sharp_value(
                 and c.parent_event_id):
             pinnacle_price_lookup[(c.parent_event_id, c.is_yes_side)] = 1.0 / c.decimal_odds
 
-    # Build kalshi_oracle_map — same two-branch formula as run_full_scan:
-    # soccer "not_X" contracts use 1 - 1/pin_c.decimal_odds (avoids Draw/Home
-    # is_yes_side collision); binary contracts use pinnacle_price_lookup direct
-    # lookup (avoids vig deflation from 1 - P(complement)).
+    # Soccer pre-collection — same logic as run_full_scan.
+    # Collects all 3 Pinnacle implied probs per soccer game so that
+    # oracle(not_X) = P(Y) + P(Z) instead of the vig-wrong 1 - P(X).
+    _soccer_pin_probs: dict[str, dict[str, float]] = {}
+    for _ca, _cb, _s, _ in hedge_pairs:
+        _is_pin_a = _ca.platform == Platform.PINNACLE
+        _is_pin_b = _cb.platform == Platform.PINNACLE
+        if _is_pin_a == _is_pin_b:
+            continue
+        _pin = _ca if _is_pin_a else _cb
+        _pm  = _cb if _is_pin_a else _ca
+        if _pm.platform != Platform.KALSHI:
+            continue
+        if _pin.decimal_odds is None or _pin.decimal_odds <= 1.0:
+            continue
+        _pm_lbl = (_pm.outcome_label or "").lower()
+        if not _pm_lbl.startswith("not_"):
+            continue
+        _pin_lbl = (_pin.outcome_label or "").lower()
+        _parent  = _pin.parent_event_id
+        if _parent:
+            if _parent not in _soccer_pin_probs:
+                _soccer_pin_probs[_parent] = {}
+            _soccer_pin_probs[_parent][_pin_lbl] = 1.0 / _pin.decimal_odds
+
+    # Build kalshi_oracle_map — same two-branch formula as run_full_scan.
     kalshi_oracle_map: dict[tuple[str, bool], float] = {}
     for contract_a, contract_b, _score, _ in hedge_pairs:
         is_pin_a = contract_a.platform == Platform.PINNACLE
@@ -689,7 +765,16 @@ async def scan_sharp_value(
         if kal_map_key not in kalshi_oracle_map:
             kal_lbl = (kal_c.outcome_label or "").lower()
             if kal_lbl.startswith("not_"):
-                oracle_price = 1.0 - (1.0 / pin_c.decimal_odds)
+                base   = kal_lbl[4:]
+                parent = pin_c.parent_event_id
+                probs  = _soccer_pin_probs.get(parent, {})
+                if base in probs and len(probs) >= 2:
+                    oracle_price = sum(p for lbl, p in probs.items() if lbl != base)
+                    yes_key = (kal_c.market_id, True)
+                    if yes_key not in kalshi_oracle_map:
+                        kalshi_oracle_map[yes_key] = probs[base]
+                else:
+                    oracle_price = 1.0 - (1.0 / pin_c.decimal_odds)
             else:
                 oracle_key   = (pin_c.parent_event_id, not pin_c.is_yes_side)
                 oracle_price = pinnacle_price_lookup.get(oracle_key)
