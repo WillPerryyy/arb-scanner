@@ -113,15 +113,31 @@ function getPlatforms(ops: ValueOpportunity[]): string[] {
 }
 
 export function ValueList({ valueOps }: Props) {
-  const [platformFilter, setPlatformFilter] = useState<string>("all");
-
   const platforms = getPlatforms(valueOps);
-  const filtered = platformFilter === "all"
-    ? valueOps
-    : valueOps.filter(v => v.sb_leg.contract.platform === platformFilter);
 
-  // Platform pill filter — only shown when more than one platform is present
+  // Independent on/off toggle per platform — default all enabled
+  const [enabled, setEnabled] = useState<Set<string>>(() => new Set(platforms));
+
+  // Re-sync when platforms list changes (e.g. new platform appears after a scan)
+  const enabledFiltered = platforms.length > 1
+    ? valueOps.filter(v => enabled.has(v.sb_leg.contract.platform))
+    : valueOps;
+
   const showFilter = platforms.length > 1;
+
+  function toggle(plat: string) {
+    setEnabled(prev => {
+      const next = new Set(prev);
+      if (next.has(plat)) {
+        // Don't allow disabling the last remaining platform
+        if (next.size === 1) return prev;
+        next.delete(plat);
+      } else {
+        next.add(plat);
+      }
+      return next;
+    });
+  }
 
   if (valueOps.length === 0) {
     return (
@@ -138,31 +154,45 @@ export function ValueList({ valueOps }: Props) {
     );
   }
 
+  const hiddenPlatforms = platforms.filter(p => !enabled.has(p));
+
   return (
     <div className="space-y-3">
       <ValueExplainer />
 
-      {/* Platform filter pills */}
+      {/* Per-platform on/off toggles */}
       {showFilter && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-gray-500">Show:</span>
-          {(["all", ...platforms] as string[]).map(plat => {
-            const isActive = platformFilter === plat;
-            const count = plat === "all"
-              ? valueOps.length
-              : valueOps.filter(v => v.sb_leg.contract.platform === plat).length;
+          {platforms.map(plat => {
+            const on  = enabled.has(plat);
+            const count = valueOps.filter(v => v.sb_leg.contract.platform === plat).length;
+            const isLast = enabled.size === 1 && on;
             return (
               <button
                 key={plat}
-                onClick={() => setPlatformFilter(plat)}
-                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                  isActive
-                    ? "bg-blue-900/60 border-blue-600 text-blue-200"
-                    : "bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200"
-                }`}
+                onClick={() => toggle(plat)}
+                disabled={isLast}
+                title={isLast ? "At least one platform must be visible" : undefined}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  on
+                    ? "bg-blue-900/60 border-blue-600 text-blue-200 hover:bg-blue-900/40"
+                    : "bg-gray-900/40 border-gray-700/50 text-gray-600 line-through hover:border-gray-600 hover:text-gray-500"
+                } ${isLast ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
               >
-                {plat === "all" ? "All" : formatPlatform(plat)}
-                <span className={`ml-1.5 ${isActive ? "text-blue-300" : "text-gray-600"}`}>
+                {/* Check / X indicator */}
+                <svg
+                  className={`w-3 h-3 flex-shrink-0 ${on ? "text-blue-400" : "text-gray-600"}`}
+                  viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2"
+                  strokeLinecap="round" strokeLinejoin="round"
+                >
+                  {on
+                    ? <path d="M2 6l3 3 5-5" />
+                    : <><path d="M2 2l8 8" /><path d="M10 2l-8 8" /></>
+                  }
+                </svg>
+                {formatPlatform(plat)}
+                <span className={`${on ? "text-blue-300" : "text-gray-700"}`}>
                   {count}
                 </span>
               </button>
@@ -172,11 +202,11 @@ export function ValueList({ valueOps }: Props) {
       )}
 
       <p className="text-xs text-gray-600 pt-0.5">
-        {filtered.length} signal{filtered.length !== 1 ? "s" : ""}
-        {platformFilter !== "all" && ` · ${formatPlatform(platformFilter)} only`}
+        {enabledFiltered.length} signal{enabledFiltered.length !== 1 ? "s" : ""}
+        {hiddenPlatforms.length > 0 && ` · ${hiddenPlatforms.map(formatPlatform).join(", ")} hidden`}
         {" "}· oracle probability exceeds prediction-market implied probability by ≥ 3 pp · click to expand
       </p>
-      {filtered.map(v => (
+      {enabledFiltered.map(v => (
         <ValueCard key={v.id} value={v} />
       ))}
     </div>
