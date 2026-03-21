@@ -42,32 +42,31 @@ function ValueExplainer() {
           <div className="pt-3 space-y-2">
             <p>
               A <span className="text-blue-300 font-semibold">Value signal</span> is a{" "}
-              <span className="text-white">single-leg bet</span> — you place one bet on a sportsbook,
-              with no hedge. It appears when the{" "}
-              <span className="text-emerald-400">Kalshi prediction market</span> assigns a meaningfully
-              higher probability to an outcome than a sportsbook's implied odds do.
+              <span className="text-white">single-leg bet</span> on a prediction market (Kalshi or
+              Polymarket), with no hedge. It appears when the{" "}
+              <span className="text-emerald-400">Pinnacle Consensus line</span> assigns a meaningfully
+              higher probability to an outcome than the prediction market's implied price does.
             </p>
             <p>
-              Since Kalshi trades as a true prediction market (no built-in vig), its prices are
-              considered a <span className="text-white">sharper probability estimate</span> than
-              sportsbook lines. When the sportsbook underprices an outcome relative to Kalshi,
-              that sportsbook bet has positive cross-market EV.
+              The <span className="text-white">Pinnacle Consensus</span> is the live market average
+              across sharp books — considered the closest available proxy for true probability.
+              When a prediction market underprices an outcome relative to that oracle, buying
+              that contract has positive cross-market EV.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
             <div className="bg-gray-900/60 rounded-lg p-3 border border-gray-800">
-              <p className="text-emerald-400 font-semibold mb-1">Oracle (Kalshi / Pinnacle)</p>
+              <p className="text-emerald-400 font-semibold mb-1">Oracle (Pinnacle Consensus)</p>
               <p className="text-gray-400">
-                The reference probability — the "true" likelihood of the outcome according to
-                the sharpest available market. Signals use the Pinnacle Consensus line
-                (live market average) as the oracle.
+                The reference probability — the live market average from sharp books.
+                When the oracle exceeds the prediction market price by ≥ 3 pp, a signal is raised.
               </p>
             </div>
             <div className="bg-gray-900/60 rounded-lg p-3 border border-gray-800">
               <p className="text-blue-400 font-semibold mb-1">Edge (pp)</p>
               <p className="text-gray-400">
-                Percentage-point gap between the oracle probability and the sportsbook's
+                Percentage-point gap between the oracle probability and the prediction market's
                 implied probability. Only signals with ≥ 3 pp edge are shown.
                 Larger edge = stronger signal.
               </p>
@@ -85,10 +84,10 @@ function ValueExplainer() {
           <div className="bg-gray-900/60 rounded-lg p-3 border border-gray-800 space-y-1">
             <p className="text-gray-400 font-semibold text-xs">Example</p>
             <p className="text-gray-400">
-              Kalshi prices "Lakers to win" at <span className="text-emerald-400">65%</span> (oracle).
-              DraftKings only implies <span className="text-white">57%</span> (+75 American odds).
-              The 8 pp gap means DraftKings is underpricing this outcome — betting
-              Lakers on DK has positive cross-market EV relative to Kalshi's sharper line.
+              Pinnacle Consensus implies "Lakers to win" at <span className="text-emerald-400">65%</span> (oracle).
+              Kalshi only prices it at <span className="text-white">57%</span> (¢57/share).
+              The 8 pp gap means Kalshi is underpricing this outcome — buying the Lakers
+              contract on Kalshi has positive cross-market EV relative to the Pinnacle oracle.
               If this edge is real, over many similar bets you profit. But you can lose
               any individual bet.
             </p>
