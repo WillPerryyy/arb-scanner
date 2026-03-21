@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ValueOpportunity } from "../../types/arbitrage";
 import { ValueCard } from "./ValueCard";
+import { formatPlatform } from "../../utils/formatters";
 
 interface Props {
   valueOps: ValueOpportunity[];
@@ -104,7 +105,24 @@ function ValueExplainer() {
   );
 }
 
+// Derive the set of platforms present in the data
+function getPlatforms(ops: ValueOpportunity[]): string[] {
+  const seen = new Set<string>();
+  for (const v of ops) seen.add(v.sb_leg.contract.platform);
+  return Array.from(seen).sort();
+}
+
 export function ValueList({ valueOps }: Props) {
+  const [platformFilter, setPlatformFilter] = useState<string>("all");
+
+  const platforms = getPlatforms(valueOps);
+  const filtered = platformFilter === "all"
+    ? valueOps
+    : valueOps.filter(v => v.sb_leg.contract.platform === platformFilter);
+
+  // Platform pill filter — only shown when more than one platform is present
+  const showFilter = platforms.length > 1;
+
   if (valueOps.length === 0) {
     return (
       <div className="space-y-4">
@@ -112,8 +130,8 @@ export function ValueList({ valueOps }: Props) {
         <div className="text-center py-12 text-gray-600">
           <p className="font-medium text-gray-500">No value signals found</p>
           <p className="text-xs mt-1 max-w-sm mx-auto text-gray-600">
-            Signals appear when Kalshi's oracle probability for an outcome is
-            meaningfully higher than a sportsbook's implied probability.
+            Signals appear when the oracle probability for an outcome is
+            meaningfully higher than the prediction market's implied probability.
           </p>
         </div>
       </div>
@@ -123,11 +141,42 @@ export function ValueList({ valueOps }: Props) {
   return (
     <div className="space-y-3">
       <ValueExplainer />
-      <p className="text-xs text-gray-600 pt-1">
-        {valueOps.length} signal{valueOps.length !== 1 ? "s" : ""} · sportsbook bets where the oracle
-        probability exceeds the sportsbook's implied probability by ≥ 3 pp · click to expand
+
+      {/* Platform filter pills */}
+      {showFilter && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-500">Show:</span>
+          {(["all", ...platforms] as string[]).map(plat => {
+            const isActive = platformFilter === plat;
+            const count = plat === "all"
+              ? valueOps.length
+              : valueOps.filter(v => v.sb_leg.contract.platform === plat).length;
+            return (
+              <button
+                key={plat}
+                onClick={() => setPlatformFilter(plat)}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  isActive
+                    ? "bg-blue-900/60 border-blue-600 text-blue-200"
+                    : "bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200"
+                }`}
+              >
+                {plat === "all" ? "All" : formatPlatform(plat)}
+                <span className={`ml-1.5 ${isActive ? "text-blue-300" : "text-gray-600"}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <p className="text-xs text-gray-600 pt-0.5">
+        {filtered.length} signal{filtered.length !== 1 ? "s" : ""}
+        {platformFilter !== "all" && ` · ${formatPlatform(platformFilter)} only`}
+        {" "}· oracle probability exceeds prediction-market implied probability by ≥ 3 pp · click to expand
       </p>
-      {valueOps.map(v => (
+      {filtered.map(v => (
         <ValueCard key={v.id} value={v} />
       ))}
     </div>
