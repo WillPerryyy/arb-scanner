@@ -121,8 +121,7 @@ export function ValueList({ valueOps }: Props) {
     setEnabled(prev => {
       const next = new Set(prev);
       if (next.has(plat)) {
-        // Don't allow disabling the last remaining platform
-        if (next.size === 1) return prev;
+        if (next.size === 1) return prev; // keep at least one enabled
         next.delete(plat);
       } else {
         next.add(plat);
@@ -131,10 +130,51 @@ export function ValueList({ valueOps }: Props) {
     });
   }
 
+  const hiddenPlatforms = ALL_PLATFORMS.filter(p => !enabled.has(p));
+
+  // Platform toggles — always rendered at the top regardless of result count
+  const platformToggles = (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-xs text-gray-500">Show:</span>
+      {ALL_PLATFORMS.map(plat => {
+        const on     = enabled.has(plat);
+        const count  = valueOps.filter(v => v.sb_leg.contract.platform === plat).length;
+        const isLast = enabled.size === 1 && on;
+        return (
+          <button
+            key={plat}
+            onClick={() => toggle(plat)}
+            disabled={isLast}
+            title={isLast ? "At least one platform must be visible" : undefined}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+              on
+                ? "bg-blue-900/60 border-blue-600 text-blue-200 hover:bg-blue-900/40"
+                : "bg-gray-900/40 border-gray-700/50 text-gray-600 line-through hover:border-gray-600 hover:text-gray-500"
+            } ${isLast ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+          >
+            <svg
+              className={`w-3 h-3 flex-shrink-0 ${on ? "text-blue-400" : "text-gray-600"}`}
+              viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round"
+            >
+              {on
+                ? <path d="M2 6l3 3 5-5" />
+                : <><path d="M2 2l8 8" /><path d="M10 2l-8 8" /></>
+              }
+            </svg>
+            {formatPlatform(plat)}
+            <span className={`${on ? "text-blue-300" : "text-gray-700"}`}>{count}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
   if (valueOps.length === 0) {
     return (
       <div className="space-y-4">
         <ValueExplainer />
+        {platformToggles}
         <div className="text-center py-12 text-gray-600">
           <p className="font-medium text-gray-500">No value signals found</p>
           <p className="text-xs mt-1 max-w-sm mx-auto text-gray-600">
@@ -146,53 +186,10 @@ export function ValueList({ valueOps }: Props) {
     );
   }
 
-  const hiddenPlatforms = ALL_PLATFORMS.filter(p => !enabled.has(p));
-
   return (
     <div className="space-y-3">
       <ValueExplainer />
-
-      {/* Per-platform on/off toggles */}
-      {showFilter && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-gray-500">Show:</span>
-          {ALL_PLATFORMS.map(plat => {
-            const on  = enabled.has(plat);
-            const count = valueOps.filter(v => v.sb_leg.contract.platform === plat).length;
-            const isLast = enabled.size === 1 && on;
-            return (
-              <button
-                key={plat}
-                onClick={() => toggle(plat)}
-                disabled={isLast}
-                title={isLast ? "At least one platform must be visible" : undefined}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                  on
-                    ? "bg-blue-900/60 border-blue-600 text-blue-200 hover:bg-blue-900/40"
-                    : "bg-gray-900/40 border-gray-700/50 text-gray-600 line-through hover:border-gray-600 hover:text-gray-500"
-                } ${isLast ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
-              >
-                {/* Check / X indicator */}
-                <svg
-                  className={`w-3 h-3 flex-shrink-0 ${on ? "text-blue-400" : "text-gray-600"}`}
-                  viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2"
-                  strokeLinecap="round" strokeLinejoin="round"
-                >
-                  {on
-                    ? <path d="M2 6l3 3 5-5" />
-                    : <><path d="M2 2l8 8" /><path d="M10 2l-8 8" /></>
-                  }
-                </svg>
-                {formatPlatform(plat)}
-                <span className={`${on ? "text-blue-300" : "text-gray-700"}`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
+      {platformToggles}
       <p className="text-xs text-gray-600 pt-0.5">
         {enabledFiltered.length} signal{enabledFiltered.length !== 1 ? "s" : ""}
         {hiddenPlatforms.length > 0 && ` · ${hiddenPlatforms.map(formatPlatform).join(", ")} hidden`}
