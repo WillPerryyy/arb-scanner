@@ -1,6 +1,7 @@
 import type { OpportunitiesResponse, EvEdgesResponse, ValueResponse, SharpValueResponse, SportKeyInfo, FilterState, CryptoScanResult } from "../types/arbitrage";
 
-const BASE = "/api";
+const BACKEND = import.meta.env.VITE_API_URL ?? "";
+const BASE = `${BACKEND}/api`;
 
 export async function fetchOpportunities(
   filters: Partial<FilterState> = {}
@@ -96,6 +97,10 @@ export async function forceCryptoScan(): Promise<CryptoScanResult> {
 
 export function createWebSocket(): WebSocket {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-  const host     = import.meta.env.DEV ? "localhost:8000" : window.location.host;
+  const host = import.meta.env.DEV
+    ? "localhost:8000"
+    : (import.meta.env.VITE_API_URL
+        ? import.meta.env.VITE_API_URL.replace(/^https?:\/\//, "")
+        : window.location.host);
   return new WebSocket(`${protocol}://${host}/ws/opportunities`);
 }
