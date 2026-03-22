@@ -483,7 +483,7 @@ export function OpportunityCard({ opp }: Props) {
                       +{formatDollars(displayOpp.net_profit)}
                     </p>
                     <p className="text-gray-600 text-xs">
-                      SB pays ${buyLeg.expected_payout.toFixed(2)}, PM sell costs {formatDollars(sellLeg.effective_cost)}
+                      Buy leg pays ${buyLeg.expected_payout.toFixed(2)}, collateral released
                     </p>
                   </div>
                   <div>
@@ -492,7 +492,7 @@ export function OpportunityCard({ opp }: Props) {
                       +{formatDollars(displayOpp.net_profit)}
                     </p>
                     <p className="text-gray-600 text-xs">
-                      Keep PM credit, lose SB stake — same net
+                      Buy leg worthless, keep premium collected — same net
                     </p>
                   </div>
                 </div>
