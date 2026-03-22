@@ -235,20 +235,21 @@ build_opportunity = build_hedge_opportunity
 
 def _get_equivalent_buy_label(
     sell_c: MarketContract,
-    no_side_label: dict[str, str] | None,
+    opponent_label: dict[tuple[str, str], str] | None,
 ) -> str | None:
     """
-    For a sell leg, return the outcome_label of the complementary NO-side contract
-    (i.e. the opponent team's abbreviation), so the frontend can display
+    For a sell leg, return the opponent's outcome_label so the frontend can show
     "BUY <opponent>" rather than "SELL <team>".
 
-    Kalshi NO-side contracts share the same market_id as the YES contract but carry
-    the opponent's abbreviation as their outcome_label (e.g. market_id "KXNBA-...-OKC"
-    has a NO-side contract with outcome_label "DAL").
+    Uses a (parent_event_id, own_outcome_label) → opponent_outcome_label lookup
+    that is platform-agnostic — works for Kalshi, Polymarket, and cross-platform
+    spread arbs alike.
     """
-    if not no_side_label:
+    if not opponent_label:
         return None
-    label = no_side_label.get(sell_c.market_id)
+    if not sell_c.parent_event_id or not sell_c.outcome_label:
+        return None
+    label = opponent_label.get((sell_c.parent_event_id, sell_c.outcome_label))
     if not label or label.lower() in ("yes", "no", ""):
         return None
     return label
@@ -259,7 +260,7 @@ def build_spread_opportunity(
     contract_b: MarketContract,
     match_score: float,
     event_title: str,
-    no_side_label: dict[str, str] | None = None,
+    opponent_label: dict[tuple[str, str], str] | None = None,
 ) -> Optional[ArbitrageOpportunity]:
     """
     Evaluate a same-side spread arb: buy where cheap, sell where expensive.
@@ -336,8 +337,8 @@ def build_spread_opportunity(
             effective_cost=round(sell_collateral, 6),
             expected_payout=round(guaranteed, 6),
             platform_fees=sell_fees,
-            # Opponent's outcome_label from the NO-side partner contract (e.g. "DAL" when selling "OKC")
-            equivalent_buy_label=_get_equivalent_buy_label(sell_c, no_side_label),
+            # Opponent's outcome_label via (parent_event_id, own_label) → opponent map
+            equivalent_buy_label=_get_equivalent_buy_label(sell_c, opponent_label),
         ),
         total_cost=round(net_cost, 6),
         guaranteed_return=round(guaranteed, 6),

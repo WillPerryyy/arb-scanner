@@ -199,19 +199,28 @@ async def run_full_scan() -> tuple[list[ArbitrageOpportunity], list[EvEdgeOpport
         if opp:
             opportunities.append(opp)
 
-    # Build lookup: market_id → opponent outcome_label from NO-side contracts.
-    # Kalshi/Polymarket NO-side contracts share a market_id with their YES partner
-    # but carry the opponent's team abbreviation as outcome_label (e.g. "DAL" for OKC game).
-    no_side_label: dict[str, str] = {
-        c.market_id: c.outcome_label
-        for c in all_contracts
-        if not c.is_yes_side
-        and c.outcome_label
-        and c.outcome_label.lower() not in ("yes", "no", "")
-    }
+    # Build lookup: (parent_event_id, outcome_label) → opponent's outcome_label.
+    # For each event group, collect all unique YES-side team labels.  When exactly
+    # two exist (binary game), each maps to the other so a sell leg can display
+    # "BUY <opponent>" regardless of which platform the sell leg is on.
+    from collections import defaultdict
+    _event_yes_labels: dict[str, list[str]] = defaultdict(list)
+    for c in all_contracts:
+        if (c.is_yes_side
+                and c.outcome_label
+                and c.outcome_label.lower() not in ("yes", "no", "")
+                and c.parent_event_id):
+            _event_yes_labels[c.parent_event_id].append(c.outcome_label)
+
+    opponent_label: dict[tuple[str, str], str] = {}
+    for event_id, labels in _event_yes_labels.items():
+        unique = list(dict.fromkeys(labels))   # deduplicate, preserve order
+        if len(unique) == 2:
+            opponent_label[(event_id, unique[0])] = unique[1]
+            opponent_label[(event_id, unique[1])] = unique[0]
 
     for contract_a, contract_b, score, canonical in spread_pairs:
-        opp = build_spread_opportunity(contract_a, contract_b, score, canonical, no_side_label)
+        opp = build_spread_opportunity(contract_a, contract_b, score, canonical, opponent_label)
         if opp:
             opportunities.append(opp)
 
