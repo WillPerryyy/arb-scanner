@@ -233,11 +233,33 @@ build_opportunity = build_hedge_opportunity
 
 # ── Spread arb builder ─────────────────────────────────────────────────────────
 
+def _get_equivalent_buy_label(
+    sell_c: MarketContract,
+    no_side_label: dict[str, str] | None,
+) -> str | None:
+    """
+    For a sell leg, return the outcome_label of the complementary NO-side contract
+    (i.e. the opponent team's abbreviation), so the frontend can display
+    "BUY <opponent>" rather than "SELL <team>".
+
+    Kalshi NO-side contracts share the same market_id as the YES contract but carry
+    the opponent's abbreviation as their outcome_label (e.g. market_id "KXNBA-...-OKC"
+    has a NO-side contract with outcome_label "DAL").
+    """
+    if not no_side_label:
+        return None
+    label = no_side_label.get(sell_c.market_id)
+    if not label or label.lower() in ("yes", "no", ""):
+        return None
+    return label
+
+
 def build_spread_opportunity(
     contract_a: MarketContract,
     contract_b: MarketContract,
     match_score: float,
     event_title: str,
+    no_side_label: dict[str, str] | None = None,
 ) -> Optional[ArbitrageOpportunity]:
     """
     Evaluate a same-side spread arb: buy where cheap, sell where expensive.
@@ -314,6 +336,8 @@ def build_spread_opportunity(
             effective_cost=round(sell_collateral, 6),
             expected_payout=round(guaranteed, 6),
             platform_fees=sell_fees,
+            # Opponent's outcome_label from the NO-side partner contract (e.g. "DAL" when selling "OKC")
+            equivalent_buy_label=_get_equivalent_buy_label(sell_c, no_side_label),
         ),
         total_cost=round(net_cost, 6),
         guaranteed_return=round(guaranteed, 6),
@@ -445,6 +469,7 @@ def rescale_opportunity(
             effective_cost=round(leg.effective_cost * scale, 6),
             expected_payout=round(leg.expected_payout * scale, 6),
             platform_fees=leg.platform_fees,
+            equivalent_buy_label=leg.equivalent_buy_label,
         )
 
     return ArbitrageOpportunity(

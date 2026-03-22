@@ -61,18 +61,21 @@ function SpreadLegCard({
     : "bg-green-900/20 border-green-800/40";
   const textColor = isSell ? "text-orange-400" : "text-green-400";
 
-  // Selling NO is economically equivalent to buying YES (and vice versa)
-  const equivalentBuyLabel = isSell && (label === "YES" || label === "NO")
-    ? (label === "NO" ? "YES" : "NO")
+  // Resolve the equivalent "BUY X" label for this sell leg:
+  //   1. Backend provides opponent abbreviation (e.g. sell OKC YES → buy DAL)
+  //   2. For YES/NO binary contracts: sell NO → buy YES, sell YES → buy NO
+  const equivLabel = isSell
+    ? (leg.equivalent_buy_label
+        ?? (label === "NO" ? "YES" : label === "YES" ? "NO" : null))
     : null;
 
   return (
     <div className={`rounded-lg p-3 space-y-1.5 border text-xs ${borderColor}`}>
       <p className={`font-semibold ${textColor}`}>
         {isSell
-          ? equivalentBuyLabel
-            ? <>BUY {equivalentBuyLabel} <span className="font-normal text-gray-500">· via sell {label}</span></>
-            : `SHORT — ${label}`
+          ? equivLabel
+            ? <>BUY {equivLabel} <span className="font-normal text-gray-500">· via sell {label}</span></>
+            : `BUY — ${label}`
           : `BUY — ${label}`
         }
       </p>
@@ -308,17 +311,21 @@ export function OpportunityCard({ opp }: Props) {
                   <span className="text-green-400 font-semibold">BUY {buyLabel}</span>
                 </span>
                 <span className="text-gray-600">+</span>
-                {/* Sell leg — reframe as equivalent long position */}
+                {/* Sell leg — always shown as equivalent BUY position */}
                 <span className="text-gray-400">
                   {formatPlatform(sellLeg.contract.platform)}{" "}
-                  {sellLabel === "YES" || sellLabel === "NO" ? (
-                    <span className="text-orange-400 font-semibold">
-                      BUY {sellLabel === "NO" ? "YES" : "NO"}
-                      <span className="font-normal text-gray-500"> (sell {sellLabel})</span>
-                    </span>
-                  ) : (
-                    <span className="text-orange-400 font-semibold">SHORT {sellLabel}</span>
-                  )}
+                  {(() => {
+                    const equiv = sellLeg.equivalent_buy_label
+                      ?? (sellLabel === "NO" ? "YES" : sellLabel === "YES" ? "NO" : null);
+                    return equiv ? (
+                      <span className="text-orange-400 font-semibold">
+                        BUY {equiv}
+                        <span className="font-normal text-gray-500"> (via sell {sellLabel})</span>
+                      </span>
+                    ) : (
+                      <span className="text-orange-400 font-semibold">BUY {sellLabel}</span>
+                    );
+                  })()}
                 </span>
               </>
             ) : (

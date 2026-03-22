@@ -199,8 +199,19 @@ async def run_full_scan() -> tuple[list[ArbitrageOpportunity], list[EvEdgeOpport
         if opp:
             opportunities.append(opp)
 
+    # Build lookup: market_id → opponent outcome_label from NO-side contracts.
+    # Kalshi/Polymarket NO-side contracts share a market_id with their YES partner
+    # but carry the opponent's team abbreviation as outcome_label (e.g. "DAL" for OKC game).
+    no_side_label: dict[str, str] = {
+        c.market_id: c.outcome_label
+        for c in all_contracts
+        if not c.is_yes_side
+        and c.outcome_label
+        and c.outcome_label.lower() not in ("yes", "no", "")
+    }
+
     for contract_a, contract_b, score, canonical in spread_pairs:
-        opp = build_spread_opportunity(contract_a, contract_b, score, canonical)
+        opp = build_spread_opportunity(contract_a, contract_b, score, canonical, no_side_label)
         if opp:
             opportunities.append(opp)
 

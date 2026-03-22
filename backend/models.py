@@ -78,6 +78,7 @@ class ArbLeg(BaseModel):
     effective_cost:         float        # net cost after fees (negative = credit received for sells)
     expected_payout:        float        # what this leg returns if it wins
     platform_fees:          PlatformFees
+    equivalent_buy_label:   Optional[str] = None  # For sell legs: the equivalent "buy X" label (e.g. sell OKC YES → buy DAL)
 
 
 class ArbitrageOpportunity(BaseModel):

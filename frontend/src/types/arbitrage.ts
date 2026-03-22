@@ -40,12 +40,13 @@ export interface MarketContract {
 }
 
 export interface ArbLeg {
-  contract:        MarketContract;
-  action:          string;  // "buy_yes", "buy_no", "buy_republican", etc.
-  stake:           number;
-  effective_cost:  number;
-  expected_payout: number;
-  platform_fees:   PlatformFees;
+  contract:              MarketContract;
+  action:                string;  // "buy_yes", "buy_no", "buy_republican", etc.
+  stake:                 number;
+  effective_cost:        number;
+  expected_payout:       number;
+  platform_fees:         PlatformFees;
+  equivalent_buy_label?: string;  // For spread sell legs: opponent's outcome label (e.g. "DAL" when selling "OKC")
 }
 
 export interface ArbitrageOpportunity {
