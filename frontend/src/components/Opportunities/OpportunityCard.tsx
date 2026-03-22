@@ -104,7 +104,7 @@ function SpreadLegCard({
       {isSell ? (
         <>
           <p className="text-gray-400">
-            Contracts shorted:{" "}
+            Contracts:{" "}
             <span className="text-white font-medium">{leg.stake.toFixed(2)}</span>
           </p>
           <p className="text-gray-400">
@@ -373,7 +373,7 @@ export function OpportunityCard({ opp }: Props) {
               </p>
             </div>
             <div>
-              <p className="text-gray-500">Shares sold</p>
+              <p className="text-gray-500">Contracts</p>
               <p className="text-white font-medium">
                 {sellLeg.stake.toFixed(2)}
               </p>
