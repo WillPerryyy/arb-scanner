@@ -72,7 +72,7 @@ function SpreadLegCard({
         {isSell
           ? equivalentBuyLabel
             ? <>BUY {equivalentBuyLabel} <span className="font-normal text-gray-500">· via sell {label}</span></>
-            : `SELL — ${label}`
+            : `SHORT — ${label}`
           : `BUY — ${label}`
         }
       </p>
@@ -317,7 +317,7 @@ export function OpportunityCard({ opp }: Props) {
                       <span className="font-normal text-gray-500"> (sell {sellLabel})</span>
                     </span>
                   ) : (
-                    <span className="text-orange-400 font-semibold">SELL {sellLabel}</span>
+                    <span className="text-orange-400 font-semibold">SHORT {sellLabel}</span>
                   )}
                 </span>
               </>
