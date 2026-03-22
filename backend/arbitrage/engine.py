@@ -200,20 +200,20 @@ async def run_full_scan() -> tuple[list[ArbitrageOpportunity], list[EvEdgeOpport
             opportunities.append(opp)
 
     # Build lookup: (parent_event_id, outcome_label) → opponent's outcome_label.
-    # For each event group, collect all unique YES-side team labels.  When exactly
-    # two exist (binary game), each maps to the other so a sell leg can display
-    # "BUY <opponent>" regardless of which platform the sell leg is on.
+    # Collect team labels from ALL contracts (YES and NO sides) because Kalshi binary
+    # games often have only one market per game — the second team's label only appears
+    # as the outcome_label of the NO-side contract.  Including both sides ensures
+    # every team label gets into the map regardless of which contract carries it.
     from collections import defaultdict
-    _event_yes_labels: dict[str, list[str]] = defaultdict(list)
+    _event_labels: dict[str, list[str]] = defaultdict(list)
     for c in all_contracts:
-        if (c.is_yes_side
-                and c.outcome_label
+        if (c.outcome_label
                 and c.outcome_label.lower() not in ("yes", "no", "")
                 and c.parent_event_id):
-            _event_yes_labels[c.parent_event_id].append(c.outcome_label)
+            _event_labels[c.parent_event_id].append(c.outcome_label)
 
     opponent_label: dict[tuple[str, str], str] = {}
-    for event_id, labels in _event_yes_labels.items():
+    for event_id, labels in _event_labels.items():
         unique = list(dict.fromkeys(labels))   # deduplicate, preserve order
         if len(unique) == 2:
             opponent_label[(event_id, unique[0])] = unique[1]
