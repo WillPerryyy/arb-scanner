@@ -13,9 +13,9 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
 };
 
 export const ARB_TYPE_LABELS: Record<ArbType, string> = {
-  cross_platform: "Cross Platform",
+  cross_platform: "Guaranteed Arb",
   sportsbook:     "Sportsbook",
-  spread:         "Spread Arb",
+  spread:         "Guaranteed Arb",
   ev_edge:        "EV Edge",
   value:          "Value",
 };

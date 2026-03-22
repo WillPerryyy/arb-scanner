@@ -14,7 +14,7 @@ interface Props {
 const ARB_TYPE_BADGE: Record<string, "info" | "success" | "warning" | "purple"> = {
   cross_platform: "success",
   sportsbook:     "warning",
-  spread:         "purple",
+  spread:         "success",
 };
 
 /**

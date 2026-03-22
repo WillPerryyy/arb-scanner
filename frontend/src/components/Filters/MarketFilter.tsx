@@ -10,10 +10,12 @@ const PLATFORMS: { value: Platform; label: string }[] = [
   { value: "caesars",    label: "Caesars" },
 ];
 
-const ARB_TYPES: { value: ArbType; label: string }[] = [
-  { value: "cross_platform", label: "Cross Platform" },
+/** arb types that are both displayed as "Guaranteed Arb" */
+const GUARANTEED_TYPES: ArbType[] = ["cross_platform", "spread"];
+
+const ARB_TYPES: { value: ArbType | "guaranteed_arb"; label: string }[] = [
+  { value: "guaranteed_arb", label: "Guaranteed Arb" },
   { value: "sportsbook",     label: "Sportsbook" },
-  { value: "spread",         label: "Spread Arb" },
 ];
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
@@ -90,21 +92,34 @@ export function MarketFilter({ filters, onChange }: Props) {
       <div className="flex flex-col gap-1">
         <span className="text-xs text-gray-500">Type</span>
         <div className="flex gap-1.5">
-          {ARB_TYPES.map(t => (
-            <button
-              key={t.value}
-              onClick={() =>
-                onChange({ ...filters, arbTypes: toggleItem(filters.arbTypes, t.value) })
+          {ARB_TYPES.map(t => {
+            const isGuaranteed = t.value === "guaranteed_arb";
+            const active = isGuaranteed
+              ? GUARANTEED_TYPES.some(g => filters.arbTypes.includes(g))
+              : filters.arbTypes.includes(t.value as ArbType);
+            function handleClick() {
+              if (isGuaranteed) {
+                // Toggle both cross_platform and spread together
+                const without = filters.arbTypes.filter(x => !GUARANTEED_TYPES.includes(x));
+                onChange({ ...filters, arbTypes: active ? without : [...without, ...GUARANTEED_TYPES] });
+              } else {
+                onChange({ ...filters, arbTypes: toggleItem(filters.arbTypes, t.value as ArbType) });
               }
-              className={`px-2.5 py-1 rounded text-xs font-medium transition-colors
-                ${filters.arbTypes.includes(t.value)
-                  ? "bg-purple-700 text-white border border-purple-500"
-                  : "bg-gray-800 text-gray-400 border border-gray-700 hover:border-gray-500"
-                }`}
-            >
-              {t.label}
-            </button>
-          ))}
+            }
+            return (
+              <button
+                key={t.value}
+                onClick={handleClick}
+                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors
+                  ${active
+                    ? "bg-purple-700 text-white border border-purple-500"
+                    : "bg-gray-800 text-gray-400 border border-gray-700 hover:border-gray-500"
+                  }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
