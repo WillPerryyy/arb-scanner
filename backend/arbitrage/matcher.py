@@ -254,11 +254,17 @@ def _is_valid_spread_pair(a: MarketContract, b: MarketContract) -> bool:
     """
     Different platforms, SAME outcome, at least one prediction-market platform.
     Sportsbooks are always the buy leg; only prediction markets can be sold.
+    3-way markets (soccer) are excluded: a third outcome (Draw) means the
+    guaranteed-return calculation is invalid.
     """
     if a.platform == b.platform:
         return False
     # Need at least one PM to enable selling
     if a.platform in SPORTSBOOK_PLATFORMS and b.platform in SPORTSBOOK_PLATFORMS:
+        return False
+    # Spread arbs require binary markets — 3-way markets have a third outcome
+    # (Draw) that means both legs can lose, so no return is guaranteed.
+    if a.num_outcomes > 2 or b.num_outcomes > 2:
         return False
     if not _market_types_compatible(a, b):
         return False

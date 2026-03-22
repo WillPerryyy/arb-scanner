@@ -74,7 +74,7 @@ function SpreadLegCard({
       <p className={`font-semibold ${textColor}`}>
         {isSell
           ? equivLabel
-            ? <>BUY {equivLabel} <span className="font-normal text-gray-500">· via sell {label}</span></>
+            ? `BUY ${equivLabel}`
             : `BUY — ${label}`
           : `BUY — ${label}`
         }
@@ -318,10 +318,7 @@ export function OpportunityCard({ opp }: Props) {
                     const equiv = sellLeg.equivalent_buy_label
                       ?? (sellLabel === "NO" ? "YES" : sellLabel === "YES" ? "NO" : null);
                     return equiv ? (
-                      <span className="text-orange-400 font-semibold">
-                        BUY {equiv}
-                        <span className="font-normal text-gray-500"> (via sell {sellLabel})</span>
-                      </span>
+                      <span className="text-orange-400 font-semibold">BUY {equiv}</span>
                     ) : (
                       <span className="text-orange-400 font-semibold">BUY {sellLabel}</span>
                     );
