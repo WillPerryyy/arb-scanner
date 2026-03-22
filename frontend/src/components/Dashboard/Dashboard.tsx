@@ -107,7 +107,7 @@ export function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 font-mono">
       {/* Header */}
-      <header className="border-b border-gray-800 px-6 py-4">
+      <header className="border-b border-gray-800 px-4 py-3 sm:px-6 sm:py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
           {/* Title block — clicking returns to guide */}
           <button
@@ -145,7 +145,7 @@ export function Dashboard() {
       </header>
 
       {/* Main content */}
-      <main className="max-w-5xl mx-auto px-6 py-6 space-y-4">
+      <main className="max-w-5xl mx-auto px-3 py-4 sm:px-6 sm:py-6 space-y-4">
         <ScanStatus
           statuses={scannerStatus}
           isConnected={isConnected}
@@ -159,7 +159,7 @@ export function Dashboard() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 text-sm font-medium rounded-t transition-colors border-b-2 -mb-px ${
+              className={`px-2.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-t transition-colors border-b-2 -mb-px ${
                 activeTab === tab.id
                   ? tab.activeColor
                   : "border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600"

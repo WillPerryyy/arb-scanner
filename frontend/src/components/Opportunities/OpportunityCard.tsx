@@ -61,10 +61,20 @@ function SpreadLegCard({
     : "bg-green-900/20 border-green-800/40";
   const textColor = isSell ? "text-orange-400" : "text-green-400";
 
+  // Selling NO is economically equivalent to buying YES (and vice versa)
+  const equivalentBuyLabel = isSell && (label === "YES" || label === "NO")
+    ? (label === "NO" ? "YES" : "NO")
+    : null;
+
   return (
     <div className={`rounded-lg p-3 space-y-1.5 border text-xs ${borderColor}`}>
       <p className={`font-semibold ${textColor}`}>
-        {isSell ? "SELL" : "BUY"} — {label}
+        {isSell
+          ? equivalentBuyLabel
+            ? <>BUY {equivalentBuyLabel} <span className="font-normal text-gray-500">· via sell {label}</span></>
+            : `SELL — ${label}`
+          : `BUY — ${label}`
+        }
       </p>
       <p className="text-gray-400">
         Platform: <span className="text-white">{formatPlatform(leg.contract.platform)}</span>
@@ -91,17 +101,17 @@ function SpreadLegCard({
       {isSell ? (
         <>
           <p className="text-gray-400">
-            Shares to sell:{" "}
+            Contracts shorted:{" "}
             <span className="text-white font-medium">{leg.stake.toFixed(2)}</span>
           </p>
           <p className="text-gray-400">
-            Credit received:{" "}
+            Premium collected:{" "}
             <span className="text-green-400 font-medium">
               +{formatDollars(leg.stake * leg.contract.price)}
             </span>
           </p>
           <p className="text-gray-400">
-            Collateral posted:{" "}
+            Max loss (collateral):{" "}
             <span className="text-orange-400 font-medium">
               {formatDollars(leg.effective_cost)}
             </span>
@@ -298,10 +308,17 @@ export function OpportunityCard({ opp }: Props) {
                   <span className="text-green-400 font-semibold">BUY {buyLabel}</span>
                 </span>
                 <span className="text-gray-600">+</span>
-                {/* Sell leg */}
+                {/* Sell leg — reframe as equivalent long position */}
                 <span className="text-gray-400">
                   {formatPlatform(sellLeg.contract.platform)}{" "}
-                  <span className="text-orange-400 font-semibold">SELL {sellLabel}</span>
+                  {sellLabel === "YES" || sellLabel === "NO" ? (
+                    <span className="text-orange-400 font-semibold">
+                      BUY {sellLabel === "NO" ? "YES" : "NO"}
+                      <span className="font-normal text-gray-500"> (sell {sellLabel})</span>
+                    </span>
+                  ) : (
+                    <span className="text-orange-400 font-semibold">SELL {sellLabel}</span>
+                  )}
                 </span>
               </>
             ) : (
@@ -338,7 +355,7 @@ export function OpportunityCard({ opp }: Props) {
       </div>
 
       {/* Key metrics row */}
-      <div className="mt-3 grid grid-cols-4 gap-2 text-xs">
+      <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
         {isSpread ? (
           <>
             <div>
@@ -437,7 +454,7 @@ export function OpportunityCard({ opp }: Props) {
           {isSpread ? (
             <>
               {/* Spread arb — buy + sell breakdown */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <SpreadLegCard
                   leg={buyLeg}
                   label={buyLabel}
@@ -455,7 +472,7 @@ export function OpportunityCard({ opp }: Props) {
               {/* Outcome scenarios */}
               <div className="bg-gray-800/50 rounded-lg p-3 space-y-2">
                 <p className="text-gray-400 font-semibold">Outcome scenarios</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <p className="text-gray-500">{buyLabel} wins</p>
                     <p className="text-green-400 font-medium">
@@ -480,7 +497,7 @@ export function OpportunityCard({ opp }: Props) {
           ) : (
             <>
               {/* Hedge arb — buy-buy two-leg breakdown */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <HedgeLegCard leg={legA} index={0} />
                 <HedgeLegCard leg={legB} index={1} />
               </div>
@@ -488,7 +505,7 @@ export function OpportunityCard({ opp }: Props) {
               {/* Outcome scenarios */}
               <div className="bg-gray-800/50 rounded-lg p-3 space-y-2">
                 <p className="text-gray-400 font-semibold">Outcome scenarios</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <p className="text-gray-500">{getLegOutcomeLabel(legA)} wins</p>
                     <p className="text-green-400 font-medium">

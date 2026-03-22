@@ -91,7 +91,7 @@ function TabCard({ tab, color, icon, title, tagline, risk, legs, description, ho
       <div className="px-5 py-4 space-y-3 text-xs text-gray-300">
         <p className="text-gray-200 leading-relaxed">{description}</p>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
             <p className="text-gray-500 font-semibold uppercase tracking-wide text-[10px] mb-1">How it works</p>
             <p className="text-gray-300 leading-relaxed">{howItWorks}</p>

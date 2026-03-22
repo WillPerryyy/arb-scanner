@@ -62,15 +62,6 @@ export function ValueCard({ value }: Props) {
             <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-900/40 text-blue-300 border border-blue-800/40">
               Value
             </span>
-            {isPM ? (
-              <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400 border border-gray-700">
-                ¢{(value.sb_leg.contract.price * 100).toFixed(1)}/share ({(value.sb_implied_prob * 100).toFixed(1)}%)
-              </span>
-            ) : (
-              <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400 border border-gray-700">
-                {americanOdds} ({dec.toFixed(2)}x)
-              </span>
-            )}
           </div>
         </div>
 

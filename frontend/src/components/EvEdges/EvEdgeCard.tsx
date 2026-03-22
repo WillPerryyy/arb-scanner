@@ -217,7 +217,7 @@ export function EvEdgeCard({ edge }: Props) {
       </div>
 
       {/* Key metrics row */}
-      <div className="mt-3 grid grid-cols-4 gap-2 text-xs">
+      <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
         <div>
           <p className="text-gray-500">Leg A stake</p>
           <p className="text-amber-400 font-medium">${scaledSbStake.toFixed(2)}</p>
@@ -262,8 +262,8 @@ export function EvEdgeCard({ edge }: Props) {
                          placeholder-gray-500"
             />
             <span className="text-gray-500 text-xs">
-              base: ${edge.total_cost.toFixed(2)}{" "}
-              (A: ${edge.sb_stake.toFixed(2)} / B: ${edge.pm_stake.toFixed(2)})
+              base: ${edge.total_cost.toFixed(2)}
+              <span className="hidden sm:inline">{" "}(A: ${edge.sb_stake.toFixed(2)} / B: ${edge.pm_stake.toFixed(2)})</span>
             </span>
             {isScaled && (
               <button
@@ -276,7 +276,7 @@ export function EvEdgeCard({ edge }: Props) {
           </div>
 
           {/* Two-leg breakdown */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <LegCard
               leg={edge.sb_leg}
               label={sbLabel}
@@ -298,7 +298,7 @@ export function EvEdgeCard({ edge }: Props) {
           {/* Outcome scenarios */}
           <div className="bg-gray-800/50 rounded-lg p-3 space-y-3">
             <p className="text-gray-400 font-semibold">Outcome scenarios</p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <p className="text-amber-400 font-medium mb-1">
                   {sbLabel} wins ({formatPlatform(edge.sb_leg.contract.platform)} pays)
