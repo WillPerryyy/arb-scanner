@@ -369,6 +369,7 @@ class KalshiScanner(BaseScanner):
         events: list[dict],
         cutoff: datetime,
         seen_keys: set[tuple[str, str]],
+        now: datetime | None = None,
     ) -> tuple[list[MarketContract], int, int]:
         """
         Parse binary (YES/NO) events for Phase 2.
@@ -379,11 +380,13 @@ class KalshiScanner(BaseScanner):
 
         Skips:
           • Game prop events: "Team A at/vs Team B: Prop Name" (colon after teams)
+          • Already-expired markets (close_time in the past)
           • Events closing beyond the cutoff (far future)
           • Markets already seen (deduplicates Phase 1 game-series contracts)
 
         Returns (contracts, skipped_prop, skipped_far_future).
         """
+        _now               = now or datetime.now(timezone.utc)
         contracts:         list[MarketContract] = []
         skipped_prop       = 0
         skipped_far_future = 0
@@ -411,9 +414,12 @@ class KalshiScanner(BaseScanner):
                     continue
 
                 close_time = _parse_close_time(m)
-                if close_time is not None and close_time > cutoff:
-                    skipped_far_future += 1
-                    continue
+                if close_time is not None:
+                    if close_time <= _now:          # already expired — skip
+                        continue
+                    if close_time > cutoff:         # too far in the future — skip
+                        skipped_far_future += 1
+                        continue
 
                 ticker = m.get("ticker", "")
                 # Use the market's own title when available — it identifies the
@@ -550,7 +556,7 @@ class KalshiScanner(BaseScanner):
                 break
 
             events = data.get("events", [])
-            batch, s_multi, s_ff = self._parse_binary_events(events, cutoff, seen_keys)
+            batch, s_multi, s_ff = self._parse_binary_events(events, cutoff, seen_keys, now=now)
             skipped_prop_total       += s_multi
             skipped_far_future_total += s_ff
 
