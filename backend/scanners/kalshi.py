@@ -30,11 +30,14 @@ Phase 1 — Game series (explicit sports moneylines):
   Live-game guard: games whose close_time is within 30 minutes of now are
   skipped — both legs of an arb must be placeable before market close.
 
-Phase 2 — General pagination (binary single-market events):
-  Fetches all events, only processes single-market (YES/NO) events.
-  These are political, economic, and miscellaneous events.
+Phase 2 — General pagination (all binary events):
+  Fetches all events, processes every market within each event as an
+  independent binary YES/NO contract. Covers single-outcome events
+  (political, economic, misc) AND multi-outcome events (Governor races,
+  Senate/House races, etc.) where each market identifies one candidate.
   Game prop events (format "Team A at Team B: Prop Name") are skipped to
   avoid false cross-platform matches with DraftKings moneylines.
+  Sports game markets already seen in Phase 1 are deduplicated via seen_keys.
 
 API facts:
   - Prices are in cents (0–99). Payout = $1.00.
@@ -113,8 +116,8 @@ SERIES_TO_SPORT: dict[str, str] = {
 }
 
 # Phase 2 pagination limits
-MAX_EVENT_PAGES = 100  # 100 pages × 100 events = up to 10 000 events
-NEAR_TERM_DAYS  = 60   # include events closing within 60 days
+MAX_EVENT_PAGES = 100   # 100 pages × 100 events = up to 10 000 events
+NEAR_TERM_DAYS  = 730   # include events closing within 2 years (covers election cycles)
 
 
 # ── Helper functions ───────────────────────────────────────────────────────────
@@ -368,17 +371,21 @@ class KalshiScanner(BaseScanner):
         seen_keys: set[tuple[str, str]],
     ) -> tuple[list[MarketContract], int, int]:
         """
-        Parse single-market binary (YES/NO) events for Phase 2.
+        Parse binary (YES/NO) events for Phase 2.
+
+        Each market within an event is treated as an independent binary contract,
+        using the market's own title (e.g. "Will Republican win WY-AL?") so that
+        multi-outcome political and categorical events are fully represented.
 
         Skips:
-          • Multi-market events (sports games, categorical elections)
           • Game prop events: "Team A at/vs Team B: Prop Name" (colon after teams)
           • Events closing beyond the cutoff (far future)
+          • Markets already seen (deduplicates Phase 1 game-series contracts)
 
-        Returns (contracts, skipped_multi, skipped_far_future).
+        Returns (contracts, skipped_prop, skipped_far_future).
         """
         contracts:         list[MarketContract] = []
-        skipped_multi      = 0
+        skipped_prop       = 0
         skipped_far_future = 0
 
         for event in events:
@@ -388,65 +395,61 @@ class KalshiScanner(BaseScanner):
             if not event_title or not markets:
                 continue
 
-            if len(markets) != 1:
-                skipped_multi += 1
-                continue
-
             # Skip game prop events (e.g. "Team A at Team B: Over 215 points")
             if _is_prop_title(event_title):
-                skipped_multi += 1
+                skipped_prop += 1
                 continue
 
-            m = markets[0]
-
-            yes_ask = m.get("yes_ask_dollars")
-            no_ask  = m.get("no_ask_dollars")
-            if yes_ask is None or no_ask is None:
-                continue
-            yes_ask = float(yes_ask)
-            no_ask  = float(no_ask)
-            if yes_ask <= 0 or no_ask <= 0:
-                continue
-
-            close_time = _parse_close_time(m)
-            if close_time is not None and close_time > cutoff:
-                skipped_far_future += 1
-                continue
-
-            yes_price = yes_ask
-            no_price  = no_ask
-            ticker    = m.get("ticker", "")
-
-            parent_event_id = normalize_event_key(event_title)
-
-            for side, price, outcome_lbl, is_yes in [
-                (ContractSide.YES, yes_price, "Yes", True),
-                (ContractSide.NO,  no_price,  "No",  False),
-            ]:
-                key = (ticker, side.value)
-                if key in seen_keys:
+            for m in markets:
+                yes_ask = m.get("yes_ask_dollars")
+                no_ask  = m.get("no_ask_dollars")
+                if yes_ask is None or no_ask is None:
                     continue
-                seen_keys.add(key)
+                yes_ask = float(yes_ask)
+                no_ask  = float(no_ask)
+                if yes_ask <= 0 or no_ask <= 0:
+                    continue
 
-                contracts.append(MarketContract(
-                    platform=self.platform,
-                    market_id=ticker,
-                    parent_event_id=parent_event_id,
-                    parent_event_title=event_title,
-                    outcome_label=outcome_lbl,
-                    is_yes_side=is_yes,
-                    event_title=event_title,
-                    side=side,
-                    price=price,
-                    payout_per_contract=PAYOUT,
-                    decimal_odds=PAYOUT / price,
-                    market_type="prediction",
-                    close_time=close_time,
-                    url=f"https://kalshi.com/markets/{ticker}",
-                    raw=m,
+                close_time = _parse_close_time(m)
+                if close_time is not None and close_time > cutoff:
+                    skipped_far_future += 1
+                    continue
+
+                ticker = m.get("ticker", "")
+                # Use the market's own title when available — it identifies the
+                # specific outcome (e.g. "Will Republican win WY-AL?") rather than
+                # the generic event question.
+                market_title    = m.get("title") or event_title
+                parent_event_id = normalize_event_key(market_title)
+
+                for side, price, outcome_lbl, is_yes in [
+                    (ContractSide.YES, yes_ask, "Yes", True),
+                    (ContractSide.NO,  no_ask,  "No",  False),
+                ]:
+                    key = (ticker, side.value)
+                    if key in seen_keys:
+                        continue
+                    seen_keys.add(key)
+
+                    contracts.append(MarketContract(
+                        platform=self.platform,
+                        market_id=ticker,
+                        parent_event_id=parent_event_id,
+                        parent_event_title=event_title,
+                        outcome_label=outcome_lbl,
+                        is_yes_side=is_yes,
+                        event_title=market_title,
+                        side=side,
+                        price=price,
+                        payout_per_contract=PAYOUT,
+                        decimal_odds=PAYOUT / price,
+                        market_type="prediction",
+                        close_time=close_time,
+                        url=f"https://kalshi.com/markets/{ticker}",
+                        raw=m,
                 ))
 
-        return contracts, skipped_multi, skipped_far_future
+        return contracts, skipped_prop, skipped_far_future
 
     async def _fetch_series_games(
         self,
@@ -525,7 +528,7 @@ class KalshiScanner(BaseScanner):
         # ── Phase 2: General pagination (binary political/economic events) ─────
         cursor:    str | None = None
         page_count               = 0
-        skipped_multi_total      = 0
+        skipped_prop_total       = 0
         skipped_far_future_total = 0
         binary_count             = 0
         PAGE_SIZE                = 100
@@ -548,7 +551,7 @@ class KalshiScanner(BaseScanner):
 
             events = data.get("events", [])
             batch, s_multi, s_ff = self._parse_binary_events(events, cutoff, seen_keys)
-            skipped_multi_total      += s_multi
+            skipped_prop_total       += s_multi
             skipped_far_future_total += s_ff
 
             contracts.extend(batch)
@@ -563,7 +566,7 @@ class KalshiScanner(BaseScanner):
 
         logger.info(
             f"[kalshi] Phase 2: {binary_count} binary contracts over {page_count} pages "
-            f"(skipped {skipped_multi_total} multi-market, {skipped_far_future_total} far-future)."
+            f"(skipped {skipped_prop_total} game-props, {skipped_far_future_total} far-future)."
         )
         logger.info(
             f"[kalshi] TOTAL: {len(contracts)} contracts "
