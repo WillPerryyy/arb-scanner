@@ -1,18 +1,19 @@
-type Tab = "arb" | "ev" | "value" | "crypto";
+type Tab = "arb" | "ev" | "value" | "crypto" | "certainty";
 
 interface Props {
   onNavigate: (tab: Tab) => void;
   counts: {
-    arb:    number;
-    ev:     number;
-    value:  number;
-    crypto: number;
+    arb:       number;
+    ev:        number;
+    value:     number;
+    crypto:    number;
+    certainty: number;
   };
 }
 
 interface TabCardProps {
   tab:         Tab;
-  color:       "green" | "amber" | "blue" | "cyan";
+  color:       "green" | "amber" | "blue" | "cyan" | "purple";
   icon:        string;
   title:       string;
   tagline:     string;
@@ -61,6 +62,13 @@ const COLOR_STYLES = {
     badge:   "bg-cyan-900/60 text-cyan-400 border-cyan-800/60",
     bar:     "bg-cyan-900/20",
   },
+  purple: {
+    border:  "border-purple-800/40 hover:border-purple-600/60",
+    heading: "text-purple-400",
+    button:  "bg-purple-900/40 border-purple-700 text-purple-300 hover:bg-purple-800/50 hover:text-purple-200",
+    badge:   "bg-purple-900/60 text-purple-400 border-purple-800/60",
+    bar:     "bg-purple-900/20",
+  },
 };
 
 function TabCard({ tab, color, icon, title, tagline, risk, legs, description, howItWorks, whenToUse, count, onNavigate }: TabCardProps) {
@@ -106,10 +114,10 @@ function TabCard({ tab, color, icon, title, tagline, risk, legs, description, ho
         <div className="flex items-center justify-between pt-1">
           {count > 0 ? (
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${c.badge}`}>
-              {count} live {count === 1 ? "opportunity" : "opportunities"}
+              {count} live {count === 1 ? "market" : "markets"}
             </span>
           ) : (
-            <span className="text-gray-600 text-xs">No live opportunities right now</span>
+            <span className="text-gray-600 text-xs">No live markets right now</span>
           )}
           <button
             onClick={() => onNavigate(tab)}
@@ -135,7 +143,7 @@ export function GuidePage({ onNavigate, counts }: Props) {
           This scanner monitors <span className="text-white font-medium">sportsbooks</span> (DraftKings, FanDuel, Caesars) and{" "}
           <span className="text-white font-medium">prediction markets</span> (Kalshi, Polymarket) in real time,
           looking for pricing discrepancies you can bet into.
-          There are four types of opportunity — each with a different risk profile.
+          There are four types of opportunity — each with a different risk profile — plus a reference tab for near-certain markets.
         </p>
         <p className="text-gray-500 text-xs">
           Click any card below to open that tab. Opportunities update automatically every ~90 seconds.
@@ -201,6 +209,21 @@ export function GuidePage({ onNavigate, counts }: Props) {
           howItWorks="Kalshi and Polymarket each offer binary contracts on whether a crypto asset will be above or below a given price at a given time. The scanner compares contracts with matching assets and strike prices across both platforms to surface potential pricing gaps."
           whenToUse="When you want exposure to crypto price moves through prediction markets rather than direct spot/futures, or when you're looking for mispricings between Kalshi and Polymarket on the same contract."
           count={counts.crypto}
+          onNavigate={onNavigate}
+        />
+
+        <TabCard
+          tab="certainty"
+          color="purple"
+          icon="📈"
+          title="High Odds"
+          tagline="Near-certain outcomes priced at 97¢ or higher"
+          risk="Info Only"
+          legs="Prediction markets"
+          description="Surfaces all Kalshi and Polymarket contracts currently priced at 97¢ or above — events the market considers near-certain to resolve YES. These are not trade signals; they are informational highlights showing where the crowd has reached strong conviction."
+          howItWorks="Prediction market prices represent the crowd's implied probability of an outcome. A contract at 98¢ means the market implies a 98% chance of resolving YES. This tab collects every such contract above your chosen threshold (97¢, 98¢, or 99¢) and hides anything that has already expired at 100¢ — those markets have effectively closed."
+          whenToUse="When researching market conviction on near-resolved events, tracking contracts approaching full resolution, or looking for context on what prediction markets consider foregone conclusions. Prices at this level have minimal remaining upside — treat as a reference, not a direct bet signal."
+          count={counts.certainty}
           onNavigate={onNavigate}
         />
       </div>

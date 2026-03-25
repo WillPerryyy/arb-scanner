@@ -105,9 +105,8 @@ SERIES_TO_SPORT: dict[str, str] = {
 }
 
 # Phase 2 pagination limits
-MAX_EVENT_PAGES              = 20   # 20 pages × 1 s/req ≈ 20 s max for Phase 2
-NEAR_TERM_DAYS               = 60   # include events closing within 60 days
-CONSECUTIVE_EMPTY_PAGES_LIMIT = 5
+MAX_EVENT_PAGES = 100  # 100 pages × 100 events = up to 10 000 events
+NEAR_TERM_DAYS  = 60   # include events closing within 60 days
 
 
 # ── Helper functions ───────────────────────────────────────────────────────────
@@ -517,15 +516,15 @@ class KalshiScanner(BaseScanner):
 
         # ── Phase 2: General pagination (binary political/economic events) ─────
         cursor:    str | None = None
-        page_count  = 0
+        page_count               = 0
         skipped_multi_total      = 0
         skipped_far_future_total = 0
-        binary_count = 0
-        consecutive_empty = 0
+        binary_count             = 0
+        PAGE_SIZE                = 100
 
         while page_count < MAX_EVENT_PAGES:
             params: dict = {
-                "limit": 100,
+                "limit": PAGE_SIZE,
                 "with_nested_markets": "true",
                 "status": "open",
             }
@@ -544,28 +543,14 @@ class KalshiScanner(BaseScanner):
             skipped_multi_total      += s_multi
             skipped_far_future_total += s_ff
 
-            page_new = 0
-            for c in batch:
-                contracts.append(c)
-                binary_count += 1
-                page_new += 1
+            contracts.extend(batch)
+            binary_count += len(batch)
 
             cursor = data.get("cursor")
             page_count += 1
 
-            if page_new == 0:
-                consecutive_empty += 1
-            else:
-                consecutive_empty = 0
-
-            if consecutive_empty >= CONSECUTIVE_EMPTY_PAGES_LIMIT:
-                logger.info(
-                    f"[kalshi] Early exit after {page_count} pages "
-                    f"({consecutive_empty} consecutive empty)."
-                )
-                break
-
-            if not cursor or not events:
+            # Stop only when the API signals exhaustion: no cursor or a short page
+            if not cursor or len(events) < PAGE_SIZE:
                 break
 
         logger.info(

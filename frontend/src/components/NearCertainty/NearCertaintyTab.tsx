@@ -52,12 +52,17 @@ function tierColour(prob: number) {
   };
 }
 
+// ── Platform filter ───────────────────────────────────────────────────────────
+
+const ALL_NC_PLATFORMS = ["kalshi", "polymarket"] as const;
+type NcPlatform = (typeof ALL_NC_PLATFORMS)[number];
+
 // ── Card ─────────────────────────────────────────────────────────────────────
 
 function NearCertaintyCard({ market }: { market: NearCertaintyMarket }) {
   const col      = tierColour(market.implied_prob);
   const pct      = Math.min(market.implied_prob, 100);
-  const timeLeft = formatClose(market.close_time);
+  const timeLeft = formatClose(market.close_time as string | null);
   const expired  = timeLeft === "Expired";
 
   return (
@@ -158,19 +163,125 @@ function ThresholdBar({
   );
 }
 
+// ── Sort bar ──────────────────────────────────────────────────────────────────
+
+type SortKey = "price" | "close_time";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "price",      label: "Probability ↓" },
+  { key: "close_time", label: "Closes soonest" },
+];
+
+function SortBar({ sortBy, onSort }: { sortBy: SortKey; onSort: (s: SortKey) => void }) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-xs text-gray-500">Sort:</span>
+      <div className="flex gap-1">
+        {SORT_OPTIONS.map(opt => (
+          <button
+            key={opt.key}
+            onClick={() => onSort(opt.key)}
+            className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+              sortBy === opt.key
+                ? "bg-purple-900/60 text-purple-300 border border-purple-600"
+                : "bg-gray-800 text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main tab component ────────────────────────────────────────────────────────
 
+/** Returns true when a market should be hidden: priced at effectively 100¢ (no upside remaining). */
+function isAt100c(m: NearCertaintyMarket): boolean {
+  return m.implied_prob >= 99.95; // displays as 100.0¢ — guaranteed but unplayable
+}
+
 export function NearCertaintyTab({ markets }: { markets: NearCertaintyMarket[] }) {
-  const [threshold, setThreshold] = useState<Threshold>(97);
+  const [threshold, setThreshold]               = useState<Threshold>(97);
+  const [enabledPlatforms, setEnabledPlatforms] = useState<NcPlatform[]>([...ALL_NC_PLATFORMS]);
+  const [sortBy, setSortBy]                     = useState<SortKey>("price");
+
+  const togglePlatform = (plat: NcPlatform) => {
+    setEnabledPlatforms(prev => {
+      if (prev.includes(plat)) {
+        if (prev.length === 1) return prev; // keep at least one
+        return prev.filter(p => p !== plat);
+      }
+      return [...prev, plat];
+    });
+  };
+
+  // Platform toggles — matching the ValueList pill pattern, in purple
+  const platformToggles = (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-xs text-gray-500">Show:</span>
+      {ALL_NC_PLATFORMS.map(plat => {
+        const on    = enabledPlatforms.includes(plat);
+        const count = markets
+          .filter(m => m.implied_prob >= threshold && !isAt100c(m))
+          .filter(m => m.platform === plat).length;
+        const isLast = enabledPlatforms.length === 1 && on;
+        return (
+          <button
+            key={plat}
+            onClick={() => togglePlatform(plat)}
+            disabled={isLast}
+            title={isLast ? "At least one platform must be visible" : undefined}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+              on
+                ? "bg-purple-900/60 border-purple-600 text-purple-200 hover:bg-purple-900/40"
+                : "bg-gray-900/40 border-gray-700/50 text-gray-600 line-through hover:border-gray-600 hover:text-gray-500"
+            } ${isLast ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+          >
+            <svg
+              className={`w-3 h-3 flex-shrink-0 ${on ? "text-purple-400" : "text-gray-600"}`}
+              viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round"
+            >
+              {on
+                ? <path d="M2 6l3 3 5-5" />
+                : <><path d="M2 2l8 8" /><path d="M10 2l-8 8" /></>
+              }
+            </svg>
+            {formatPlatform(plat)}
+            <span className={`${on ? "text-purple-300" : "text-gray-700"}`}>{count}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
 
   const filtered = markets
     .filter(m => m.implied_prob >= threshold)
-    .sort((a, b) => b.price - a.price);
+    .filter(m => !isAt100c(m))
+    .filter(m => enabledPlatforms.includes(m.platform as NcPlatform));
+
+  const sorted = sortBy === "close_time"
+    ? [...filtered].sort((a, b) => {
+        // Null close times sink to the bottom
+        if (!a.close_time && !b.close_time) return 0;
+        if (!a.close_time) return 1;
+        if (!b.close_time) return -1;
+        return (
+          new Date(a.close_time as string).getTime() -
+          new Date(b.close_time as string).getTime()
+        );
+      })
+    : [...filtered].sort((a, b) => b.price - a.price);
 
   if (markets.length === 0) {
     return (
-      <div className="text-center py-16 text-gray-600 text-sm">
-        No near-certainty markets found yet — trigger a scan to refresh.
+      <div className="space-y-4">
+        {platformToggles}
+        <div className="text-center py-16 text-gray-600 text-sm">
+          No near-certainty markets found yet — trigger a scan to refresh.
+        </div>
       </div>
     );
   }
@@ -180,16 +291,21 @@ export function NearCertaintyTab({ markets }: { markets: NearCertaintyMarket[] }
       <ThresholdBar
         threshold={threshold}
         onThreshold={setThreshold}
-        total={filtered.length}
+        total={sorted.length}
       />
 
-      {filtered.length === 0 ? (
+      <div className="flex flex-wrap gap-y-2 items-center justify-between">
+        {platformToggles}
+        <SortBar sortBy={sortBy} onSort={setSortBy} />
+      </div>
+
+      {sorted.length === 0 ? (
         <div className="text-center py-12 text-gray-600 text-sm">
           No markets at ≥{threshold}¢ right now.
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {filtered.map(m => (
+          {sorted.map(m => (
             <NearCertaintyCard key={m.id} market={m} />
           ))}
         </div>

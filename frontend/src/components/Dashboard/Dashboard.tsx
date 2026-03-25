@@ -192,10 +192,11 @@ export function Dashboard() {
           <GuidePage
             onNavigate={setActiveTab}
             counts={{
-              arb:    opportunities.length,
-              ev:     evEdges.length,
-              value:  valueOps.length,
-              crypto: cryptoArbCount,
+              arb:       opportunities.length,
+              ev:        evEdges.length,
+              value:     valueOps.length,
+              crypto:    cryptoArbCount,
+              certainty: nearCertaintyMarkets.filter(m => m.implied_prob >= 98).length,
             }}
           />
         ) : activeTab === "arb" ? (
