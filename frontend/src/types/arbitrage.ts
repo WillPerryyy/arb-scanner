@@ -189,9 +189,12 @@ export interface WebSocketMessage {
     last_scan_at?:       string | null;
     last_scan_cost?:     number;
     // Crypto markets (included in opportunities_update + crypto_update broadcasts)
-    crypto_markets?:    CryptoMarket[];
-    crypto_arb_count?:  number;
-    scanned_at?:        string | null;
+    crypto_markets?:       CryptoMarket[];
+    crypto_arb_count?:     number;
+    scanned_at?:           string | null;
+    // Near-certainty markets (included in opportunities_update broadcasts)
+    near_certainty?:       NearCertaintyMarket[];
+    near_certainty_count?: number;
   };
 }
 
@@ -227,4 +230,22 @@ export interface CryptoScanResult {
   markets:    CryptoMarket[];
   arb_count:  number;
   scanned_at: string | null;       // ISO timestamp
+}
+
+/**
+ * A single contract priced at ≥97¢ — near-certain outcome.
+ * Covers any market type: sports, politics, economics, crypto, etc.
+ * Sorted by price descending (highest certainty first).
+ */
+export interface NearCertaintyMarket {
+  id:            string;
+  platform:      Platform;
+  event_title:   string;
+  outcome_label: string;      // The near-certain outcome label
+  price:         number;      // 0–1  (e.g. 0.98)
+  implied_prob:  number;      // price × 100  (e.g. 98.0)
+  close_time:    string | null;
+  url:           string | null;
+  volume_24h:    number | null;
+  detected_at:   string;
 }

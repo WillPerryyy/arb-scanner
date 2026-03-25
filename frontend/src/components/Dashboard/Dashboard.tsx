@@ -6,11 +6,12 @@ import { MarketFilter }    from "../Filters/MarketFilter";
 import { OpportunityList } from "../Opportunities/OpportunityList";
 import { EvEdgeList }      from "../EvEdges/EvEdgeList";
 import { ValueList }       from "../Value/ValueList";
-import { CryptoTab }       from "../Crypto/CryptoTab";
-import { GuidePage }       from "../Guide/GuidePage";
+import { CryptoTab }           from "../Crypto/CryptoTab";
+import { GuidePage }           from "../Guide/GuidePage";
+import { NearCertaintyTab }    from "../NearCertainty/NearCertaintyTab";
 import { Spinner }         from "../UI/Spinner";
 
-type Tab = "guide" | "arb" | "ev" | "value" | "crypto";
+type Tab = "guide" | "arb" | "ev" | "value" | "crypto" | "certainty";
 
 interface TabDef {
   id:          Tab;
@@ -58,6 +59,8 @@ export function Dashboard() {
     isCryptoScanning,
     cryptoScanError,
     forceCryptoScan,
+    // Near-certainty markets
+    nearCertaintyMarkets,
   } = useArbitrageOpportunities();
 
   const handleForceScan = useCallback(async () => {
@@ -101,6 +104,13 @@ export function Dashboard() {
       activeColor: "border-cyan-500 text-cyan-400 bg-cyan-900/10",
       badgeColor:  "bg-cyan-900/60 text-cyan-400 border-cyan-800/60",
       count:       cryptoArbCount,
+    },
+    {
+      id:          "certainty",
+      label:       "High Odds",
+      activeColor: "border-purple-500 text-purple-400 bg-purple-900/10",
+      badgeColor:  "bg-purple-900/60 text-purple-400 border-purple-800/60",
+      count:       nearCertaintyMarkets.filter(m => m.implied_prob >= 98).length,
     },
   ];
 
@@ -202,7 +212,7 @@ export function Dashboard() {
             enabledPlatforms={enabledValuePlatforms}
             onTogglePlatform={toggleValuePlatform}
           />
-        ) : (
+        ) : activeTab === "crypto" ? (
           <CryptoTab
             markets={cryptoMarkets}
             arbCount={cryptoArbCount}
@@ -211,6 +221,8 @@ export function Dashboard() {
             scanError={cryptoScanError}
             onScan={forceCryptoScan}
           />
+        ) : (
+          <NearCertaintyTab markets={nearCertaintyMarkets} />
         )}
       </main>
     </div>

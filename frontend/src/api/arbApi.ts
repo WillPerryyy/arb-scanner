@@ -1,4 +1,4 @@
-import type { OpportunitiesResponse, EvEdgesResponse, ValueResponse, SharpValueResponse, SportKeyInfo, FilterState, CryptoScanResult } from "../types/arbitrage";
+import type { OpportunitiesResponse, EvEdgesResponse, ValueResponse, SharpValueResponse, SportKeyInfo, FilterState, CryptoScanResult, NearCertaintyMarket } from "../types/arbitrage";
 
 const BACKEND = import.meta.env.VITE_API_URL ?? "";
 const BASE = `${BACKEND}/api`;
@@ -92,6 +92,17 @@ export async function forceCryptoScan(): Promise<CryptoScanResult> {
     const msg = await res.text().catch(() => String(res.status));
     throw new Error(`Crypto scan failed (${res.status}): ${msg}`);
   }
+  return res.json();
+}
+
+/** Fetch all contracts currently priced at ≥ minProb % (default 97). */
+export async function fetchNearCertainty(
+  minProb = 97.0,
+): Promise<{ markets: NearCertaintyMarket[]; count: number }> {
+  const params = new URLSearchParams();
+  params.set("min_prob", String(minProb));
+  const res = await fetch(`${BASE}/near-certainty?${params}`);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 

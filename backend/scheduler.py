@@ -41,33 +41,37 @@ async def scan_and_broadcast() -> None:
             # main scan; run_full_scan() creates its own client internally.
             async with httpx.AsyncClient(timeout=25.0, follow_redirects=True) as crypto_client:
                 (
-                    (opportunities, ev_edges, value_ops, statuses, kalshi_sport_counts),
+                    (opportunities, ev_edges, value_ops, statuses, kalshi_sport_counts, near_certainty),
                     (crypto_result, _crypto_status),
                 ) = await asyncio.gather(
                     run_full_scan(),
                     fetch_crypto_markets(crypto_client),
                 )
 
-            cache.set("latest_opportunities",  opportunities)
-            cache.set("latest_ev_edges",       ev_edges)
-            cache.set("latest_value_ops",      value_ops)
-            cache.set("scanner_status",        statuses)
-            cache.set("kalshi_sport_counts",   kalshi_sport_counts)
-            cache.set("crypto_scan_result",    crypto_result)
+            cache.set("latest_opportunities",    opportunities)
+            cache.set("latest_ev_edges",         ev_edges)
+            cache.set("latest_value_ops",        value_ops)
+            cache.set("scanner_status",          statuses)
+            cache.set("kalshi_sport_counts",     kalshi_sport_counts)
+            cache.set("crypto_scan_result",      crypto_result)
+            cache.set("near_certainty_markets",  near_certainty)
 
             payload = json.dumps({
                 "type": "opportunities_update",
                 "payload": {
-                    "opportunities":    [o.model_dump(mode="json") for o in opportunities],
-                    "ev_edges":         [e.model_dump(mode="json") for e in ev_edges],
-                    "value_ops":        [v.model_dump(mode="json") for v in value_ops],
-                    "scanner_status":   [s.model_dump(mode="json") for s in statuses],
-                    "count":            len(opportunities),
-                    "ev_edges_count":   len(ev_edges),
-                    "value_ops_count":  len(value_ops),
+                    "opportunities":        [o.model_dump(mode="json") for o in opportunities],
+                    "ev_edges":             [e.model_dump(mode="json") for e in ev_edges],
+                    "value_ops":            [v.model_dump(mode="json") for v in value_ops],
+                    "scanner_status":       [s.model_dump(mode="json") for s in statuses],
+                    "count":                len(opportunities),
+                    "ev_edges_count":       len(ev_edges),
+                    "value_ops_count":      len(value_ops),
                     # Crypto markets are included in every broadcast for real-time updates
-                    "crypto_markets":   [m.model_dump(mode="json") for m in crypto_result.markets],
-                    "crypto_arb_count": crypto_result.arb_count,
+                    "crypto_markets":       [m.model_dump(mode="json") for m in crypto_result.markets],
+                    "crypto_arb_count":     crypto_result.arb_count,
+                    # Near-certainty markets (≥97¢) across all platforms
+                    "near_certainty":       [m.model_dump(mode="json") for m in near_certainty],
+                    "near_certainty_count": len(near_certainty),
                 },
             })
 

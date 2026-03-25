@@ -97,6 +97,19 @@ class ArbitrageOpportunity(BaseModel):
     expires_at:             Optional[datetime] = None
 
 
+class NearCertaintyMarket(BaseModel):
+    id:             str
+    platform:       Platform
+    event_title:    str
+    outcome_label:  str          # The near-certain outcome (e.g. "YES", "DEN", "Republican")
+    price:          float        # Contract price 0–1 (e.g. 0.98 = 98¢)
+    implied_prob:   float        # price × 100  (e.g. 98.0)
+    close_time:     Optional[str] = None   # ISO timestamp
+    url:            Optional[str] = None
+    volume_24h:     Optional[float] = None
+    detected_at:    datetime
+
+
 class ScannerStatus(BaseModel):
     platform:               Platform
     last_scanned_at:        Optional[datetime] = None

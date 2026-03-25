@@ -14,7 +14,7 @@ from config import settings
 from models import (
     OpportunitiesResponse, EvEdgesResponse, ValueResponse,
     ArbitrageOpportunity, EvEdgeOpportunity, ValueOpportunity, ScannerStatus,
-    CryptoScanResult,
+    CryptoScanResult, NearCertaintyMarket,
 )
 from scheduler import start_scheduler, active_connections, scan_and_broadcast
 
@@ -157,6 +157,25 @@ async def get_value_ops(
         scanned_at=datetime.now(timezone.utc),
         total_markets=sum(s.markets_found for s in statuses),
     )
+
+
+@app.get("/api/near-certainty")
+async def get_near_certainty(
+    min_prob: float = Query(97.0, ge=90, le=100, description="Minimum implied probability % (e.g. 97 = 97¢+)"),
+    limit:    int   = Query(200, ge=1, le=1000),
+):
+    """
+    Return all contracts currently priced at or above min_prob% implied probability.
+    Results are sorted by price descending (highest certainty first).
+    Any event type — sports, politics, crypto, economics, etc.
+    """
+    markets: list[NearCertaintyMarket] = (
+        cache.get("near_certainty_markets", settings.CACHE_TTL_SECONDS) or []
+    )
+    min_price = min_prob / 100.0
+    if min_price > 0.97:
+        markets = [m for m in markets if m.price >= min_price]
+    return {"markets": [m.model_dump(mode="json") for m in markets[:limit]], "count": len(markets)}
 
 
 @app.post("/api/scan/trigger")
@@ -443,6 +462,10 @@ async def websocket_endpoint(ws: WebSocket):
         )
         crypto_arb_count = crypto_result.arb_count if crypto_result else 0
 
+        near_certainty: list[NearCertaintyMarket] = (
+            cache.get("near_certainty_markets", settings.CACHE_TTL_SECONDS) or []
+        )
+
         await ws.send_text(json.dumps({
             "type": "opportunities_update",
             "payload": {
@@ -460,6 +483,9 @@ async def websocket_endpoint(ws: WebSocket):
                 # Crypto initial state
                 "crypto_markets":        crypto_markets_payload,
                 "crypto_arb_count":      crypto_arb_count,
+                # Near-certainty initial state
+                "near_certainty":        [m.model_dump(mode="json") for m in near_certainty],
+                "near_certainty_count":  len(near_certainty),
             },
         }))
 

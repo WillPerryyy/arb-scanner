@@ -46,7 +46,7 @@ from arbitrage.calculator import (
     build_hedge_opportunity, build_spread_opportunity, build_sportsbook_arb,
     build_ev_edge, build_value_opportunity,
 )
-from models import ArbitrageOpportunity, EvEdgeOpportunity, ValueOpportunity, ScannerStatus, Platform
+from models import ArbitrageOpportunity, EvEdgeOpportunity, ValueOpportunity, ScannerStatus, Platform, NearCertaintyMarket
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +141,7 @@ def _best_spread_per_pm_contract(
     return non_spread + list(best.values())
 
 
-async def run_full_scan() -> tuple[list[ArbitrageOpportunity], list[EvEdgeOpportunity], list[ValueOpportunity], list[ScannerStatus], dict[str, int]]:
+async def run_full_scan() -> tuple[list[ArbitrageOpportunity], list[EvEdgeOpportunity], list[ValueOpportunity], list[ScannerStatus], dict[str, int], list[NearCertaintyMarket]]:
     """
     1. Run Kalshi + DraftKings + FanDuel + Caesars scanners concurrently.
     2. Match events across platforms (exact key + fuzzy).
@@ -652,7 +652,10 @@ async def run_full_scan() -> tuple[list[ArbitrageOpportunity], list[EvEdgeOpport
         + ", ".join(f"{k}:{v}" for k, v in sorted(kalshi_sport_counts.items()))
     )
 
-    return deduped, ev_edges, value_ops, statuses, kalshi_sport_counts
+    near_certainty = find_near_certainty_markets(all_contracts, min_price=0.97)
+    logger.info(f"[near_certainty] {len(near_certainty)} markets at ≥97¢.")
+
+    return deduped, ev_edges, value_ops, statuses, kalshi_sport_counts, near_certainty
 
 
 async def scan_sharp_value(
@@ -841,3 +844,50 @@ async def scan_sharp_value(
         f"{requests_remaining} Odds API requests remaining."
     )
     return value_ops, statuses, requests_remaining
+
+
+# ── Near-Certainty scanner ──────────────────────────────────────────────────────
+
+def find_near_certainty_markets(
+    all_contracts: list,
+    min_price: float = 0.97,
+) -> list[NearCertaintyMarket]:
+    """
+    Return all contracts whose price is at or above min_price (default 97¢).
+
+    Each entry is a single market — no cross-platform matching needed.
+    Deduplicates by (platform, market_id, is_yes_side) so the same contract
+    is never shown twice, but the same *event* on different platforms can appear
+    multiple times (useful for spotting near-certain arbs).
+    Sorted by price descending (highest certainty first).
+    """
+    from datetime import datetime, timezone
+    seen: set[str] = set()
+    markets: list[NearCertaintyMarket] = []
+
+    for c in all_contracts:
+        if c.price < min_price:
+            continue
+        key = f"{c.platform.value}:{c.market_id}:{int(c.is_yes_side)}"
+        if key in seen:
+            continue
+        seen.add(key)
+
+        # Skip generic YES/NO labels that carry no informational value on their own
+        label = c.outcome_label or ("YES" if c.is_yes_side else "NO")
+
+        markets.append(NearCertaintyMarket(
+            id=f"nc_{c.platform.value}_{c.market_id}_{int(c.is_yes_side)}",
+            platform=c.platform,
+            event_title=c.event_title or c.parent_event_title or "",
+            outcome_label=label,
+            price=round(c.price, 4),
+            implied_prob=round(c.price * 100, 1),
+            close_time=c.close_time,
+            url=c.url,
+            volume_24h=c.volume_24h,
+            detected_at=datetime.now(timezone.utc),
+        ))
+
+    markets.sort(key=lambda m: m.price, reverse=True)
+    return markets

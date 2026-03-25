@@ -11,6 +11,7 @@ import type {
   SortKey,
   SportKeyInfo,
   CryptoMarket,
+  NearCertaintyMarket,
 } from "../types/arbitrage";
 
 const DEFAULT_FILTERS: FilterState = {
@@ -50,6 +51,9 @@ export function useArbitrageOpportunities() {
   const [selectedSportKeys, setSelectedSportKeys]             = useState<string[]>([]);
   const [sportInfoLoading, setSportInfoLoading]               = useState(false);
 
+  // ── Near-certainty state ─────────────────────────────────────────────────────
+  const [nearCertaintyMarkets, setNearCertaintyMarkets] = useState<NearCertaintyMarket[]>([]);
+
   // ── Crypto state ─────────────────────────────────────────────────────────────
   const [cryptoMarkets, setCryptoMarkets]         = useState<CryptoMarket[]>([]);
   const [cryptoArbCount, setCryptoArbCount]       = useState(0);
@@ -83,6 +87,11 @@ export function useArbitrageOpportunities() {
       }
       if (msg.payload.crypto_arb_count !== undefined) {
         setCryptoArbCount(msg.payload.crypto_arb_count);
+      }
+
+      // Near-certainty markets — updated every broadcast cycle
+      if (msg.payload.near_certainty !== undefined) {
+        setNearCertaintyMarkets(msg.payload.near_certainty);
       }
     } else if (msg.type === "sharp_value_update") {
       // Broadcast fired by POST /api/sharp-value/scan
@@ -259,5 +268,7 @@ export function useArbitrageOpportunities() {
     isCryptoScanning,
     cryptoScanError,
     forceCryptoScan: forceCryptoScanNow,
+    // Near-certainty markets
+    nearCertaintyMarkets,
   };
 }
