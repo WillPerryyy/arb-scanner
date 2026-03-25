@@ -78,7 +78,11 @@ GAME_SERIES = [
     "KXLIGUE1GAME",   # Ligue 1
     "KXUFCFIGHT",     # UFC/MMA
     "KXBOXINGFIGHT",  # Boxing
-    "KXTENNISGAME",   # Tennis
+    "KXTENNISGAME",   # Tennis (legacy series — kept for continuity)
+    "KXATPMATCH",     # ATP Tennis Match (active series as of 2026)
+    "KXATPGAME",      # ATP Tennis Game Winner
+    "KXWTAMATCH",     # WTA Tennis Match (active series as of 2026)
+    "KXWTAGAME",      # WTA Tennis Game Winner
     "KXNCAAWBGAME",   # NCAA Women's Basketball (active Nov–Apr)
 ]
 
@@ -101,6 +105,10 @@ SERIES_TO_SPORT: dict[str, str] = {
     "KXUFCFIGHT":    "ufc",
     "KXBOXINGFIGHT": "boxing",
     "KXTENNISGAME":  "tennis",
+    "KXATPMATCH":    "tennis",
+    "KXATPGAME":     "tennis",
+    "KXWTAMATCH":    "tennis",
+    "KXWTAGAME":     "tennis",
     "KXNCAAWBGAME":  "ncaaw",
 }
 
