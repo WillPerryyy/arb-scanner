@@ -1,7 +1,7 @@
 from __future__ import annotations
 from enum import Enum
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 from pydantic import BaseModel, Field
 
 
@@ -104,7 +104,7 @@ class NearCertaintyMarket(BaseModel):
     outcome_label:  str          # The near-certain outcome (e.g. "YES", "DEN", "Republican")
     price:          float        # Contract price 0–1 (e.g. 0.98 = 98¢)
     implied_prob:   float        # price × 100  (e.g. 98.0)
-    close_time:     Optional[str] = None   # ISO timestamp
+    close_time:     Optional[Union[str, datetime]] = None   # ISO string or datetime
     url:            Optional[str] = None
     volume_24h:     Optional[float] = None
     detected_at:    datetime

@@ -848,17 +848,19 @@ async def scan_sharp_value(
 
 # ── Near-Certainty scanner ──────────────────────────────────────────────────────
 
+_NC_PLATFORMS = {Platform.KALSHI, Platform.POLYMARKET}
+
+
 def find_near_certainty_markets(
     all_contracts: list,
     min_price: float = 0.97,
 ) -> list[NearCertaintyMarket]:
     """
-    Return all contracts whose price is at or above min_price (default 97¢).
+    Return Kalshi and Polymarket contracts priced at or above min_price (default 97¢).
 
-    Each entry is a single market — no cross-platform matching needed.
-    Deduplicates by (platform, market_id, is_yes_side) so the same contract
-    is never shown twice, but the same *event* on different platforms can appear
-    multiple times (useful for spotting near-certain arbs).
+    Only prediction-market platforms are included — sportsbook decimal odds are
+    not directly comparable to a 0–1 probability price, so they are excluded.
+    Deduplicates by (platform, market_id, is_yes_side).
     Sorted by price descending (highest certainty first).
     """
     from datetime import datetime, timezone
@@ -866,6 +868,8 @@ def find_near_certainty_markets(
     markets: list[NearCertaintyMarket] = []
 
     for c in all_contracts:
+        if c.platform not in _NC_PLATFORMS:
+            continue
         if c.price < min_price:
             continue
         key = f"{c.platform.value}:{c.market_id}:{int(c.is_yes_side)}"
